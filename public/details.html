@@ -27,7 +27,6 @@
         const container = document.getElementById('details-container');
         const currentUser = localStorage.getItem('pathforge_user') || 'guest';
 
-        // Get the SOC code from the URL, e.g., details.html?soc=11-1011.00
         const urlParams = new URLSearchParams(window.location.search);
         const socCode = urlParams.get('soc');
 
@@ -42,7 +41,14 @@
 
             const data = await response.json();
 
-            let profileMatchHTML = '<h3>Your Profile Match</h3>';
+            let profileMatchHTML = '<h2>Your Profile Match</h2>';
+
+            // FIXED: Add the Aptitudes section
+            profileMatchHTML += '<h4>Top Aptitudes Required:</h4><ul>';
+            data.profile_match.aptitudes.forEach(item => {
+                profileMatchHTML += `<li><strong>${item.name}</strong> (Job Importance: ${item.job_importance.toFixed(2)})</li>`;
+            });
+            profileMatchHTML += '</ul>';
 
             profileMatchHTML += '<h4>Top Interests Match:</h4><ul>';
             data.profile_match.interests.forEach(item => {
