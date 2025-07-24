@@ -146,17 +146,30 @@ def save_values(user_id: str, profile: ValuesProfile):
 
 @app.get("/matches/{user_id}")
 def get_matches(user_id: str):
+    """
+    Calculates a holistic match score based on the user's PERCENTAGE MATCH
+    to the ideal profile for each job across aptitudes, interests, and values.
+    """
     conn = db.get_db_connection()
     with conn.cursor(cursor_factory=DictCursor) as cur:
-        user_aptitudes = {}
-        cur.execute("SELECT MIN(value) FROM scores WHERE user_id = %s AND metric = 'Reaction Time'", (user_id,)); rt_score = cur.fetchone()
-        if rt_score and rt_score[0]: user_aptitudes['Reaction Time'] = rt_score[0]
-        cur.execute("SELECT MAX(value) FROM scores WHERE user_id = %s AND metric = 'Number Facility'", (user_id,)); nf_score = cur.fetchone()
-        if nf_score and nf_score[0]: user_aptitudes['Number Facility'] = nf_score[0]
-        cur.execute("SELECT MAX(value) FROM scores WHERE user_id = %s AND metric = 'Spatial Orientation'", (user_id,)); so_score = cur.fetchone()
-        if so_score and so_score[0]: user_aptitudes['Spatial Orientation'] = so_score[0]
-        if not user_aptitudes: raise HTTPException(status_code=404, detail="No aptitude scores found.")
+        # --- Part 1: Get User Profiles ---
+        cur.execute("SELECT metric, MIN(value) as score FROM scores WHERE user_id = %s AND metric = 'Reaction Time' GROUP BY metric", (user_id,))
+        rt_score = cur.fetchone()
+        cur.execute("SELECT metric, MAX(value) as score FROM scores WHERE user_id = %s AND metric IN ('Number Facility', 'Spatial Orientation') GROUP BY metric", (user_id,))
+        apt_scores = cur.fetchall()
+        user_aptitudes = {row['metric']: row['score'] for row in apt_scores}
+        if rt_score: user_aptitudes['Reaction Time'] = rt_score['score']
 
+        cur.execute("SELECT interest_name, score FROM user_interests WHERE user_id = %s", (user_id,));
+        user_interests = {row['interest_name']: row['score'] for row in cur.fetchall()}
+
+        cur.execute("SELECT value_name, score FROM user_values WHERE user_id = %s", (user_id,));
+        user_values = {row['value_name']: row['score'] for row in cur.fetchall()}
+
+        if not all([user_aptitudes, user_interests, user_values]):
+            raise HTTPException(status_code=404, detail="User profile is incomplete. Please complete all assessments.")
+
+        # --- Part 2: Normalize User Aptitude Scores to a 0-1 scale ---
         normalized_aptitudes = {}
         for metric, raw_score in user_aptitudes.items():
             if metric in ['Number Facility', 'Spatial Orientation']: normalized_aptitudes[metric] = raw_score / 100.0
@@ -164,57 +177,58 @@ def get_matches(user_id: str):
                 best_rt, worst_rt = 150, 1000; clamped_score = max(best_rt, min(raw_score, worst_rt))
                 normalized_aptitudes[metric] = 1 - ((clamped_score - best_rt) / (worst_rt - best_rt))
 
-        cur.execute("SELECT soc_code, ability_name, score FROM abilities_normalized"); all_abilities = cur.fetchall()
-        job_abilities = {}; 
-        for row in all_abilities:
-            if row['soc_code'] not in job_abilities: job_abilities[row['soc_code']] = {}
-            job_abilities[row['soc_code']][row['ability_name']] = row['score']
-        aptitude_scores = {soc: sum(s*normalized_aptitudes.get(a, 0) for a, s in abilities.items()) for soc, abilities in job_abilities.items()}
+        # --- Part 3: Pre-fetch all O*NET data ---
+        job_abilities = {}; cur.execute("SELECT soc_code, ability_name, score FROM abilities_normalized");
+        for r in cur.fetchall():
+            job_abilities.setdefault(r['soc_code'], {})[r['ability_name']] = r['score']
 
-        cur.execute("SELECT interest_name, score FROM user_interests WHERE user_id = %s", (user_id,)); user_interests_rows = cur.fetchall()
-        if not user_interests_rows: raise HTTPException(status_code=404, detail="No interest profile found.")
-        user_interests = {row['interest_name']: row['score'] for row in user_interests_rows}
-        cur.execute("SELECT soc_code, interest_name, value FROM interests"); all_interests = cur.fetchall()
-        job_interests = {}
-        for row in all_interests:
-            if row['soc_code'] not in job_interests: job_interests[row['soc_code']] = {}
-            job_interests[row['soc_code']][row['interest_name'][0]] = row['value']
-        interest_scores = {soc: sum(s*user_interests.get(i, 0) for i, s in interests.items()) for soc, interests in job_interests.items()}
+        job_interests = {}; cur.execute("SELECT soc_code, interest_name, value FROM interests");
+        for r in cur.fetchall():
+            job_interests.setdefault(r['soc_code'], {})[r['interest_name'][0]] = r['value']
 
-        cur.execute("SELECT value_name, score FROM user_values WHERE user_id = %s", (user_id,)); user_values_rows = cur.fetchall()
-        if not user_values_rows: raise HTTPException(status_code=404, detail="No work values profile found.")
-        user_values = {row['value_name']: row['score'] for row in user_values_rows}
-        cur.execute("SELECT soc_code, value_name, value FROM work_values"); all_values = cur.fetchall()
-        job_values = {}
-        for row in all_values:
-            if row['soc_code'] not in job_values: job_values[row['soc_code']] = {}
-            job_values[row['soc_code']][row['value_name']] = row['value']
-        value_scores = {soc: sum(s*user_values.get(v, 0) for v, s in values.items()) for soc, values in job_values.items()}
+        job_values = {}; cur.execute("SELECT soc_code, value_name, value FROM work_values");
+        for r in cur.fetchall():
+            job_values.setdefault(r['soc_code'], {})[r['value_name']] = r['value']
 
+        # --- Part 4: Calculate Percent Match Scores ---
         final_scores = {}
-        all_soc_codes = set(aptitude_scores.keys()) & set(interest_scores.keys()) & set(value_scores.keys())
-        max_apt = max(aptitude_scores.values()) or 1; max_int = max(interest_scores.values()) or 1; max_val = max(value_scores.values()) or 1
-        for soc_code in all_soc_codes:
-            norm_apt = (aptitude_scores.get(soc_code, 0)/max_apt)*100
-            norm_int = (interest_scores.get(soc_code, 0)/max_int)*100
-            norm_val = (value_scores.get(soc_code, 0)/max_val)*100
-            final_scores[soc_code] = (0.5 * norm_apt) + (0.3 * norm_int) + (0.2 * norm_val)
+        all_soc_codes = set(job_abilities.keys()) & set(job_interests.keys()) & set(job_values.keys())
 
+        for soc in all_soc_codes:
+            # Calculate user's actual score for this job
+            user_apt_score = sum(s * normalized_aptitudes.get(a, 0) for a, s in job_abilities.get(soc, {}).items())
+            user_int_score = sum(s * user_interests.get(i, 0) for i, s in job_interests.get(soc, {}).items())
+            user_val_score = sum(s * user_values.get(v, 0) for v, s in job_values.get(soc, {}).items())
+
+            # Calculate the max possible score for this job (for a "perfect" user)
+            max_apt_score = sum(job_abilities.get(soc, {}).values())
+            max_int_score = sum(s * 2 for s in job_interests.get(soc, {}).values()) # Max interest score is 2 ('Like')
+            max_val_score = sum(s * 1 for s in job_values.get(soc, {}).values())   # Max value score is 1 (Chosen once)
+
+            # Calculate the percent match for each category
+            apt_percent_match = (user_apt_score / max_apt_score) * 100 if max_apt_score > 0 else 0
+            int_percent_match = (user_int_score / max_int_score) * 100 if max_int_score > 0 else 0
+            val_percent_match = (user_val_score / max_val_score) * 100 if max_val_score > 0 else 0
+
+            # Weighted average of the percentages
+            final_scores[soc] = (0.5 * apt_percent_match) + (0.3 * int_percent_match) + (0.2 * val_percent_match)
+
+        # --- Part 5: Format and Return Top 10 Results ---
         sorted_matches = sorted(final_scores.items(), key=lambda item: item[1], reverse=True)[:10]
+
         top_soc_codes = [item[0] for item in sorted_matches]
         if not top_soc_codes: return {"user_profile": {**user_aptitudes, **user_interests, **user_values}, "matches": []}
 
         placeholders = ','.join(['%s'] * len(top_soc_codes))
-        query = f"SELECT soc_code, title FROM occupations WHERE soc_code IN ({placeholders})"
-        cur.execute(query, top_soc_codes); occupations = cur.fetchall()
-        occupation_map = {row['soc_code']: row['title'] for row in occupations}
+        cur.execute(f"SELECT soc_code, title FROM occupations WHERE soc_code IN ({placeholders})", top_soc_codes)
+        occupation_map = {row['soc_code']: row['title'] for row in cur.fetchall()}
 
-        final_results = []
-        for soc_code, score in sorted_matches:
-            final_results.append({"title": occupation_map.get(soc_code, "Unknown Title"), "soc_code": soc_code, "match_score": round(score, 2)})
+        final_results = [{"title": occupation_map.get(soc, "N/A"), "soc_code": soc, "match_score": round(score, 2)} for soc, score in sorted_matches]
 
     conn.close()
-    return {"user_profile": {**user_aptitudes, **user_interests, **user_values}, "matches": final_results}
+    # Combine all user profiles for the response header
+    full_user_profile = {**user_aptitudes, **user_interests, **user_values}
+    return {"user_profile": full_user_profile, "matches": final_results}
 
 @app.get("/job_details/{user_id}/{soc_code}")
 def get_job_details(user_id: str, soc_code: str):
