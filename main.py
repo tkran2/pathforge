@@ -1,25 +1,41 @@
-from fastapi import FastAPI, HTTPException
+import os
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import datetime
 from typing import Optional, Dict
 from pydantic import BaseModel
 from psycopg2.extras import DictCursor
-import db # Import our new db module
+
+import db
 
 app = FastAPI()
 
-# --- Pydantic Models ---
-class Score(BaseModel): user_id: str; role: str; metric: str; value: float; ms: int
-class InterestProfile(BaseModel): R: int; I: int; A: int; S: int; E: int; C: int
-class ValuesProfile(BaseModel): values: Dict[str, int]
-
-# --- Static Files ---
+# serve your frontend
+if not os.path.exists("public"):
+    os.makedirs("public")
 app.mount("/static", StaticFiles(directory="public"), name="static")
 
-# --- Endpoints (Updated for PostgreSQL) ---
+
+# --- Pydantic Models ---
+class Score(BaseModel):
+    user_id: str
+    role: str
+    metric: str
+    value: float
+    ms: int
+
+class InterestProfile(BaseModel):
+    R: int; I: int; A: int; S: int; E: int; C: int
+
+class ValuesProfile(BaseModel):
+    values: Dict[str, int]
+
+# --- Endpoints ---
+
 @app.get("/")
-async def read_index(): return FileResponse('public/index.html')
+def root():
+    return {"status": "ok", "message": "PathForge API is running"}
 
 @app.get("/demand")
 def get_demand(role: str, region: Optional[str] = None):
@@ -36,20 +52,50 @@ def get_demand(role: str, region: Optional[str] = None):
     conn.close()
     return {"role": role, "region": region, "openings_last_7_days": count}
 
+from fastapi import HTTPException
+from psycopg2.extras import DictCursor
+
 @app.get("/skills")
 def get_skills_for_role(role: str):
     conn = db.get_db_connection()
-    with conn.cursor(cursor_factory=DictCursor) as cur:
-        cur.execute("SELECT soc_code, title FROM occupations WHERE LOWER(title) LIKE %s LIMIT 1", (f"%{role.lower()}%",))
-        match = cur.fetchone()
-        if not match:
-            conn.close()
-            raise HTTPException(status_code=404, detail="Occupation not found for skills lookup")
-        soc_code = match["soc_code"]
-        cur.execute("SELECT skill_name, score FROM skills_normalized WHERE soc_code = %s ORDER BY score DESC LIMIT 20", (soc_code,))
-        ranked_skills = cur.fetchall()
-    conn.close()
-    return {"matches": [dict(match)], "skills": [dict(skill) for skill in ranked_skills]}
+    try:
+        with conn.cursor(cursor_factory=DictCursor) as cur:
+            # 1) find the best matching occupation
+            cur.execute(
+                """
+                SELECT soc_code, title
+                FROM occupations
+                WHERE LOWER(title) LIKE %s
+                LIMIT 1
+                """,
+                (f"%{role.lower()}%",)
+            )
+            match = cur.fetchone()
+            if not match:
+                raise HTTPException(404, f"No occupation found matching '{role}'")
+            soc_code = match["soc_code"]
+
+            # 2) pull its top–20 skills from your existing skills table
+            cur.execute(
+                """
+                SELECT skill_name, value AS score
+                FROM skills
+                WHERE soc_code = %s
+                ORDER BY value DESC
+                LIMIT 20
+                """,
+                (soc_code,)
+            )
+            skills = cur.fetchall()
+
+    finally:
+        conn.close()
+
+    return {
+        "matches": [dict(match)],
+        "skills": [dict(row) for row in skills]
+    }
+
 
 @app.post("/score")
 def post_score(score: Score):
@@ -57,7 +103,14 @@ def post_score(score: Score):
     with conn.cursor() as cur:
         cur.execute(
             "INSERT INTO scores (user_id, role, metric, value, ms, created_at) VALUES (%s, %s, %s, %s, %s, %s)",
-            (score.user_id, score.role, score.metric, score.value, score.ms, datetime.datetime.utcnow().isoformat())
+            (
+                score.user_id,
+                score.role,
+                score.metric,
+                score.value,
+                score.ms,
+                datetime.datetime.utcnow().isoformat()
+            )
         )
     conn.commit()
     conn.close()
@@ -68,8 +121,11 @@ def save_interests(user_id: str, profile: InterestProfile):
     conn = db.get_db_connection()
     with conn.cursor() as cur:
         cur.execute("DELETE FROM user_interests WHERE user_id = %s", (user_id,))
-        for interest_name, score in profile.dict().items():
-            cur.execute("INSERT INTO user_interests (user_id, interest_name, score) VALUES (%s, %s, %s)", (user_id, interest_name, score))
+        for interest_name, val in profile.dict().items():
+            cur.execute(
+                "INSERT INTO user_interests (user_id, interest_name, score) VALUES (%s, %s, %s)",
+                (user_id, interest_name, val)
+            )
     conn.commit()
     conn.close()
     return {"status": "success", "user_id": user_id, "saved_profile": profile.dict()}
@@ -79,8 +135,11 @@ def save_values(user_id: str, profile: ValuesProfile):
     conn = db.get_db_connection()
     with conn.cursor() as cur:
         cur.execute("DELETE FROM user_values WHERE user_id = %s", (user_id,))
-        for value_name, score in profile.values.items():
-            cur.execute("INSERT INTO user_values (user_id, value_name, score) VALUES (%s, %s, %s)", (user_id, value_name, score))
+        for value_name, val in profile.values.items():
+            cur.execute(
+                "INSERT INTO user_values (user_id, value_name, score) VALUES (%s, %s, %s)",
+                (user_id, value_name, val)
+            )
     conn.commit()
     conn.close()
     return {"status": "success", "user_id": user_id, "saved_profile": profile.values}
