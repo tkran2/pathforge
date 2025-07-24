@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your PathForge Matches</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 2em auto; line-height: 1.6; }
+        .nav-links { margin-bottom: 2em; }
+        a.card-link { text-decoration: none; color: inherit; }
+        #matches-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1em; }
+        .match-card { padding: 1em; border: 1px solid #ccc; border-radius: 8px; transition: box-shadow 0.2s; }
+        .match-card:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .match-card h3 { margin-top: 0; color: #0056b3; }
+        .match-card ul { padding-left: 20px; margin-bottom: 0; }
+    </style>
+</head>
+<body>
+    <div class="nav-links">
+        <a href="/static/assessment.html">Take More Assessments</a> | <a href="/static/login.html">Logout</a>
+    </div>
+    <h1>Your Top Career Matches</h1>
+    <p>Click any card for a detailed breakdown.</p>
+    <div id="matches-container"><p>Loading your matches...</p></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async function() {
+            const userId = localStorage.getItem('pathforge_user') || 'guest';
+            const container = document.getElementById('matches-container');
+            document.querySelector('h1').textContent = `Top Career Matches for: ${userId}`;
+
+            try {
+                const matchesResponse = await fetch(`/matches/${userId}`);
+                const matchesData = await matchesResponse.json();
+                container.innerHTML = ''; 
+
+                if (matchesData.matches && matchesData.matches.length > 0) {
+                    for (const match of matchesData.matches) {
+                        const card = document.createElement('div');
+                        card.className = 'match-card';
+
+                        const title = document.createElement('h3');
+                        title.textContent = match.title;
+                        const score = document.createElement('p');
+                        score.textContent = `Match Score: ${match.match_score}`;
+                        const skillsContainer = document.createElement('div');
+                        skillsContainer.innerHTML = `<p><em>Loading top skills...</em></p>`;
+
+                        card.appendChild(title);
+                        card.appendChild(score);
+                        card.appendChild(skillsContainer);
+
+                        const link = document.createElement('a');
+                        link.href = `/static/details.html?soc=${match.soc_code}`;
+                        link.className = 'card-link';
+                        link.appendChild(card);
+                        container.appendChild(link);
+
+                        // FIXED: Fetch skills using the reliable soc_code
+                        const skillsResponse = await fetch(`/skills?soc_code=${match.soc_code}`);
+                        if (skillsResponse.ok) {
+                            const skillsData = await skillsResponse.json();
+                            skillsContainer.innerHTML = '<strong>Top Skills:</strong>';
+                            const skillsList = document.createElement('ul');
+                            skillsData.skills.slice(0, 3).forEach(skill => {
+                                const li = document.createElement('li');
+                                li.textContent = skill.skill_name;
+                                skillsList.appendChild(li);
+                            });
+                            skillsContainer.appendChild(skillsList);
+                        } else {
+                            skillsContainer.innerHTML = '<p><em>Skill data not available.</em></p>';
+                        }
+                    }
+                } else {
+                    container.innerHTML = '<p>No matches found. <a href="/static/assessment.html">Take assessments</a> to see results!</p>';
+                }
+            } catch (error) {
+                container.innerHTML = '<p>Could not load your matches at this time. Please try again later.</p>';
+            }
+        });
+    </script>
+</body>
+</html>

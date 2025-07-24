@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Work Styles Profiler</title>
+    <style>
+        body { font-family: sans-serif; max-width: 700px; margin: 2em auto; line-height: 1.6; }
+        .nav-links { margin-bottom: 2em; }
+        .question { padding: 10px; border-bottom: 1px solid #eee; }
+        .question p { margin: 0 0 10px 0; }
+        .rating-group { display: flex; justify-content: space-between; }
+        .rating-group label { display: block; text-align: center; }
+        .results-container { margin-top: 2em; padding: 1em; border: 2px solid #007bff; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="nav-links">
+        <a href="/static/assessment.html">Take Aptitude Tests</a> | <a href="/static/dashboard.html">View My Matches</a>
+    </div>
+
+    <h1>Work Styles Profiler</h1>
+    <p>On a scale of 1 (Lowest) to 5 (Highest), please rate yourself on the following personal styles.</p>
+
+    <div id="questionnaire"></div>
+    <button id="finish-btn" style="width: 100%; padding: 15px; font-size: 1.2em; margin-top: 1em;">Finish & Save Profile</button>
+    <div id="results-container" style="display: none;">
+        <h2>Your Work Styles Profile</h2>
+        <pre id="results-output"></pre>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const currentUser = localStorage.getItem('pathforge_user') || 'guest';
+    const styles = [ "Attention to Detail", "Integrity", "Cooperation", "Adaptability/Flexibility", "Initiative", "Stress Tolerance", "Persistence", "Leadership" ];
+    const questionnaireDiv = document.getElementById('questionnaire');
+    const finishBtn = document.getElementById('finish-btn');
+    const resultsContainer = document.getElementById('results-container');
+    const resultsOutput = document.getElementById('results-output');
+    let userScores = {};
+
+    styles.forEach(style => {
+        userScores[style] = 3;
+        const questionDiv = document.createElement('div');
+        questionDiv.className = 'question';
+        let radioButtonsHTML = '';
+        for (let i = 1; i <= 5; i++) { radioButtonsHTML += `<label><input type="radio" name="${style}" value="${i}" ${i === 3 ? 'checked' : ''}>${i}</label>`; }
+        questionDiv.innerHTML = `<p><strong>${style}</strong></p><div class="rating-group">${radioButtonsHTML}</div>`;
+        questionnaireDiv.appendChild(questionDiv);
+    });
+
+    questionnaireDiv.addEventListener('change', e => { if (e.target.type === 'radio') userScores[e.target.name] = parseInt(e.target.value, 10); });
+
+    async function saveProfile(profile) {
+        await fetch(`/save_styles/${currentUser}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ styles: profile })
+        });
+    }
+
+    finishBtn.addEventListener('click', function() {
+        let resultText = "Your self-assessed scores (out of 5):\n\n";
+        for (const style in userScores) { resultText += `${style}: ${'★'.repeat(userScores[style])}${'☆'.repeat(5 - userScores[style])}\n`; }
+        resultsOutput.textContent = resultText;
+        resultsContainer.style.display = 'block';
+
+        saveProfile(userScores);
+        finishBtn.textContent = 'Profile Saved!';
+        finishBtn.disabled = true;
+    });
+});
+</script>
+</body>
+</html>
