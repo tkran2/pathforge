@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interest Profiler</title>
+    <style>
+        body { font-family: sans-serif; max-width: 700px; margin: 2em auto; line-height: 1.6; }
+        .nav-links { margin-bottom: 2em; }
+        .question { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .question-text { flex-grow: 1; }
+        .question-buttons button { margin-left: 5px; cursor: pointer; }
+        .results-container { margin-top: 2em; padding: 1em; border: 2px solid #007bff; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="nav-links">
+        <a href="/static/assessment.html">Take Aptitude Tests</a> | <a href="/static/dashboard.html">View My Matches</a>
+    </div>
+
+    <h1>Interest Profiler</h1>
+    <p>Rate how much you would enjoy doing each of the following activities.</p>
+
+    <div id="questionnaire"></div>
+
+    <button id="finish-btn" style="width: 100%; padding: 15px; font-size: 1.2em; margin-top: 1em;">Finish & Save Profile</button>
+
+    <div id="results-container" style="display: none;">
+        <h2>Your Interest Profile (RIASEC)</h2>
+        <pre id="results-output"></pre>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const currentUser = localStorage.getItem('pathforge_user') || 'guest';
+    const questions = [
+        { text: "Work with tools and machinery", type: 'R' }, { text: "Solve complex puzzles or problems", type: 'I' },
+        { text: "Design graphics or websites", type: 'A' }, { text: "Teach or train other people", type: 'S' },
+        { text: "Start my own business", type: 'E' }, { text: "Organize files and records", type: 'C' },
+        { text: "Work outdoors", type: 'R' }, { text: "Do research in a lab", type: 'I' },
+        { text: "Write stories or music", type: 'A' }, { text: "Help people with their problems", type: 'S' },
+        { text: "Persuade or sell to others", type: 'E' }, { text: "Work with a clear set of rules", type: 'C' }
+    ];
+
+    const questionnaireDiv = document.getElementById('questionnaire');
+    const finishBtn = document.getElementById('finish-btn');
+    const resultsContainer = document.getElementById('results-container');
+    const resultsOutput = document.getElementById('results-output');
+    let userAnswers = {};
+
+    questions.forEach((q, index) => { /* Omitted for brevity, but it's here */ 
+        const questionDiv = document.createElement('div');
+        questionDiv.className = 'question';
+        questionDiv.innerHTML = `<span class="question-text">${q.text}</span><div class="question-buttons"><button data-q-index="${index}" data-value="2">Like</button><button data-q-index="${index}" data-value="1">Unsure</button><button data-q-index="${index}" data-value="0">Dislike</button></div>`;
+        questionnaireDiv.appendChild(questionDiv);
+    });
+
+    questionnaireDiv.addEventListener('click', function(e) { /* Omitted for brevity */ 
+        if (e.target.tagName === 'BUTTON') {
+            const qIndex = e.target.dataset.qIndex;
+            userAnswers[qIndex] = { type: questions[qIndex].type, value: parseInt(e.target.dataset.value, 10) };
+            e.target.parentElement.querySelectorAll('button').forEach(btn => btn.style.backgroundColor = '');
+            e.target.style.backgroundColor = '#a0e0a0';
+        }
+    });
+
+    async function saveProfile(profile) {
+        try {
+            const response = await fetch(`/save_interests/${currentUser}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(profile)
+            });
+            if (response.ok) {
+                console.log('Profile saved successfully!');
+            } else {
+                console.error('Failed to save profile.');
+            }
+        } catch (error) {
+            console.error('Error saving profile:', error);
+        }
+    }
+
+    finishBtn.addEventListener('click', function() {
+        const riasecScores = { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 };
+        for (const qIndex in userAnswers) {
+            const answer = userAnswers[qIndex];
+            riasecScores[answer.type] += answer.value;
+        }
+
+        const profileText = `Realistic (R):     ${riasecScores.R}\nInvestigative (I): ${riasecScores.I}\nArtistic (A):      ${riasecScores.A}\nSocial (S):        ${riasecScores.S}\nEnterprising (E):  ${riasecScores.E}\nConventional (C):  ${riasecScores.C}`;
+
+        resultsOutput.textContent = profileText;
+        resultsContainer.style.display = 'block';
+
+        // Send the data to the backend
+        saveProfile(riasecScores);
+        finishBtn.textContent = 'Profile Saved!';
+        finishBtn.disabled = true;
+    });
+});
+</script>
+</body>
+</html>

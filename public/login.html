@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - PathForge</title>
+    <style>
+        body { font-family: sans-serif; max-width: 400px; margin: 5em auto; text-align: center; }
+        input { width: 80%; padding: 8px; margin-bottom: 1em; }
+    </style>
+</head>
+<body>
+    <h1>PathForge</h1>
+    <p>Enter a username to begin.</p>
+    <input type="text" id="username" placeholder="e.g., JaneDoe">
+    <button id="login-btn">Start</button>
+
+    <script>
+        document.getElementById('login-btn').addEventListener('click', () => {
+            const username = document.getElementById('username').value;
+            if (username) {
+                // Save the username in the browser's storage
+                localStorage.setItem('pathforge_user', username);
+                // Redirect to the assessment page
+                window.location.href = '/static/assessment.html';
+            } else {
+                alert('Please enter a username.');
+            }
+        });
+    </script>
+</body>
+</html>

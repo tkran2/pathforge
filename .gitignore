@@ -148,6 +148,20 @@ venv.bak/
 .spyderproject
 .spyproject
 
+# Database and Logs
+jobs.db
+cron.log
+
+# Python virtual environment
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Editor backup files
+*.save
+
 # Rope project settings
 .ropeproject
 
