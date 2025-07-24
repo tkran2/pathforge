@@ -1,60 +1,45 @@
-import sqlite3, pandas as pd, pathlib
+import pandas as pd
+import db
+import os
 
-DB = "jobs.db"
-DATA_DIR = pathlib.Path("data/onet/db_29_3_text")
+ONET_DIR = 'data/onet/db_29_3_text/'
 
-FILES = {
-    # NOTE: we do NOT include "Job Zone" here because it isn't in this file
-    "Occupation Data.txt": ("occupations", {
-        "O*NET-SOC Code": "soc_code",
-        "Title": "title",
-        "Description": "description"
-    }),
-    "Skills.txt": ("skills", {
-        "O*NET-SOC Code": "soc_code",
-        "Element ID": "element_id",
-        "Element Name": "skill_name",
-        "Scale ID": "scale_id",
-        "Data Value": "value"
-    }),
-    "Abilities.txt": ("abilities", {
-        "O*NET-SOC Code": "soc_code",
-        "Element ID": "element_id",
-        "Element Name": "ability_name",
-        "Scale ID": "scale_id",
-        "Data Value": "value"
-    }),
-    "Work Activities.txt": ("work_activities", {
-        "O*NET-SOC Code": "soc_code",
-        "Element ID": "element_id",
-        "Element Name": "activity_name",
-        "Scale ID": "scale_id",
-        "Data Value": "value"
-    }),
-    # Optional: we load Job Zone info from the separate file
-    "Job Zones.txt": ("job_zones", {
-        "O*NET-SOC Code": "soc_code",
-        "Job Zone": "job_zone",
-        "Typical Education Needed": "education_needed",
-        "Related Experience": "related_experience",
-        "Job Training": "job_training"
-    })
-}
+def load_and_select(filename, table_name, column_map, engine):
+    """
+    Reads a tab-separated file, selects specific columns using the provided
+    map, renames them, and loads them into a database table.
+    """
+    filepath = os.path.join(ONET_DIR, filename)
+    print(f"Loading {filepath} into table '{table_name}'...")
 
-def load_file(txt_name, table, colmap, conn):
-    path = DATA_DIR / txt_name
-    df = pd.read_csv(path, sep="\t", dtype=str)
+    # Read the file using the header from the file itself
+    df = pd.read_csv(filepath, sep='\t', encoding='latin1')
 
-    # Only keep columns that actually exist in this file
-    keep_old = [c for c in colmap.keys() if c in df.columns]
-    df = df[keep_old].rename(columns=colmap)
+    # Keep only the columns we need, specified by the keys in column_map
+    df_subset = df[list(column_map.keys())]
 
-    df.to_sql(table, conn, if_exists="replace", index=False)
-    print(f"Loaded {table}: {len(df)} rows (from {txt_name})")
+    # Rename the columns to our desired names
+    df_subset = df_subset.rename(columns=column_map)
+
+    # Save to the database
+    df_subset.to_sql(table_name, con=engine, if_exists='replace', index=False)
+    print(f"Loaded {len(df_subset)} rows into '{table_name}'.")
 
 if __name__ == "__main__":
-    with sqlite3.connect(DB) as conn:
-        for txt, (table, colmap) in FILES.items():
-            load_file(txt, table, colmap, conn)
-    print("All O*NET tables loaded.")
+    engine = db.get_db_engine()
 
+    # Define the columns we want to keep from each file and what to name them
+    occupation_cols = {"O*NET-SOC Code": "soc_code", "Title": "title", "Description": "description"}
+    skill_cols = {"O*NET-SOC Code": "soc_code", "Element ID": "element_id", "Element Name": "skill_name", "Scale ID": "scale_id", "Data Value": "value"}
+    ability_cols = {"O*NET-SOC Code": "soc_code", "Element ID": "element_id", "Element Name": "ability_name", "Scale ID": "scale_id", "Data Value": "value"}
+    activity_cols = {"O*NET-SOC Code": "soc_code", "Element ID": "element_id", "Element Name": "activity_name", "Scale ID": "scale_id", "Data Value": "value"}
+    job_zone_cols = {"O*NET-SOC Code": "soc_code", "Job Zone": "job_zone"} # Also includes other columns we don't need
+
+    # Load each table
+    load_and_select("Occupation Data.txt", "occupations", occupation_cols, engine)
+    load_and_select("Skills.txt", "skills", skill_cols, engine)
+    load_and_select("Abilities.txt", "abilities", ability_cols, engine)
+    load_and_select("Work Activities.txt", "work_activities", activity_cols, engine)
+    load_and_select("Job Zones.txt", "job_zones", job_zone_cols, engine)
+
+    print("\nO*NET data loading complete.")

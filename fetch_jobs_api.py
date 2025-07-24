@@ -1,49 +1,50 @@
-import sys, os, sqlite3, datetime
+# fetch_jobs_api.py (Updated for PostgreSQL)
+import os
+import sys
 import httpx
+from datetime import date
 from dotenv import load_dotenv
+import db
 
-DB = "jobs.db"
+load_dotenv()
+API_KEY = os.getenv("RAPIDAPI_KEY")
 
-def init_db():
-    with sqlite3.connect(DB) as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS jobs(
-                role   TEXT,
-                region TEXT,
-                date   TEXT
-            )
-        """)
-
-def fetch_and_store(role: str, region: str):
-    load_dotenv()  # loads RAPIDAPI_KEY from .env
-    api_key = os.getenv("RAPIDAPI_KEY")
-    if not api_key:
-        raise RuntimeError("RAPIDAPI_KEY missing. Put it in .env or export it.")
-
+def fetch_jobs(role, region):
     url = "https://jsearch.p.rapidapi.com/search"
-    params = {"query": f"{role} in {region}", "page": 1, "num_pages": 1}
+    querystring = {"query": f"{role} in {region}", "num_pages": "1", "page": "1"}
     headers = {
-        "X-RapidAPI-Key": api_key,
-        "X-RapidAPI-Host": "jsearch.p.rapidapi.com"
+        "X-RapidAPI-Key": API_KEY,
+        "X-RapidAPI-Host": "jsearch.p.rapidapi.com",
     }
+    with httpx.Client() as client:
+        response = client.get(url, headers=headers, params=querystring)
+        response.raise_for_status()
+        return response.json().get("data", [])
 
-    r = httpx.get(url, headers=headers, params=params, timeout=15)
-    r.raise_for_status()
-    data = r.json()
-    results = data.get("data", [])
-
-    today = datetime.date.today().isoformat()
-    with sqlite3.connect(DB) as conn:
-        for _ in results[:50]:
-            conn.execute(
-                "INSERT INTO jobs(role, region, date) VALUES (?,?,?)",
-                (role.lower(), region.lower(), today)
-            )
-
-    print(f"Inserted {min(50, len(results))} rows for '{role}' / '{region}'")
+def save_jobs(jobs_data, role, region):
+    conn = db.get_db_connection()
+    with conn.cursor() as cur:
+        today = date.today().isoformat()
+        for job in jobs_data:
+            # Using %s for PostgreSQL
+            cur.execute("INSERT INTO jobs (role, region, date) VALUES (%s, %s, %s)", (role, region, today))
+    conn.commit()
+    conn.close()
+    print(f"Saved {len(jobs_data)} jobs for '{role}' in '{region}'.")
 
 if __name__ == "__main__":
-    role   = sys.argv[1] if len(sys.argv) > 1 else "CNC machinist"
-    region = sys.argv[2] if len(sys.argv) > 2 else "Illinois"
-    init_db()
-    fetch_and_store(role, region)
+    if len(sys.argv) != 3:
+        print("Usage: python fetch_jobs_api.py \"<role>\" \"<region>\"")
+        sys.exit(1)
+
+    role_arg = sys.argv[1]
+    region_arg = sys.argv[2]
+
+    try:
+        jobs = fetch_jobs(role_arg, region_arg)
+        if jobs:
+            save_jobs(jobs, role_arg, region_arg)
+        else:
+            print("No jobs found for the given query.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
