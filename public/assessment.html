@@ -26,7 +26,6 @@
 
     <main>
         <h1>Aptitude Assessments</h1>
-        <!-- Game containers from your original file -->
         <div class="game-container">
             <h3>Assessment 1: Reaction Time</h3>
             <p>Click the box as soon as it turns green. Complete 5 rounds.</p>
@@ -81,17 +80,22 @@
 
         // --- THE FIX: Updated postScore function ---
         async function postScore(metric, value, ms) {
-            // The new endpoint is /save_score/{metric}/{role}
-            // We'll use a placeholder 'N/A' for role as it's not used in these tests.
-            const role = 'N/A';
+            const role = 'aptitude-test'; // A clean placeholder for the role
             try {
-                const response = await fetch(`/save_score/${metric}/${role}`, {
+                // The new endpoint is just /save_score
+                const response = await fetch('/save_score', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}` // Send the token
                     },
-                    body: JSON.stringify({ value: value, ms: ms })
+                    // All data is now in the body
+                    body: JSON.stringify({
+                        metric: metric,
+                        role: role,
+                        value: value,
+                        ms: ms
+                    })
                 });
                 if (!response.ok) {
                     console.error(`Failed to save score for ${metric}`);
@@ -104,8 +108,6 @@
         }
 
         // --- All your original game logic below ---
-        // I have only changed the final call in each game to use the new postScore function.
-        
         // --- REACTION TIME GAME ---
         const reactionBox = document.getElementById('reaction-box'); const startReactionBtn = document.getElementById('start-reaction'); const reactionResultEl = document.getElementById('reaction-result'); let startTime, reactionTimes = [], round = 0, maxRounds = 5; startReactionBtn.addEventListener('click', startReactionGame); function startReactionGame() { reactionTimes = []; round = 0; startReactionBtn.disabled = true; startReactionBtn.textContent = 'Game in progress...'; reactionBox.style.display = 'block'; reactionResultEl.textContent = ''; nextReactionRound(); } function nextReactionRound() { if (round >= maxRounds) { endReactionGame(); return; } round++; reactionResultEl.textContent = `Get ready for round ${round}...`; reactionBox.classList.remove('active'); setTimeout(() => { startTime = Date.now(); reactionBox.classList.add('active'); }, Math.random() * 2500 + 1000); } reactionBox.addEventListener('click', () => { if (startTime) { const reactionTime = Date.now() - startTime; reactionTimes.push(reactionTime); reactionResultEl.textContent = `Round ${round} result: ${reactionTime} ms`; startTime = null; reactionBox.classList.remove('active'); setTimeout(nextReactionRound, 1000); } }); function endReactionGame() { const average = Math.round(reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length); reactionResultEl.textContent = `Final average: ${average} ms.`; reactionBox.style.display = 'none'; startReactionBtn.textContent = 'Play Again'; startReactionBtn.disabled = false; postScore('Reaction Time', average, average); }
 
@@ -120,4 +122,3 @@
     </script>
 </body>
 </html>
-

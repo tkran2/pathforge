@@ -30,10 +30,24 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: Optional[str] = None
 
-class Score(BaseModel): value: float; ms: int
-class InterestProfile(BaseModel): R: int; I: int; A: int; S: int; E: int; C: int
-class ValuesProfile(BaseModel): values: Dict[str, int]
-class StylesProfile(BaseModel): styles: Dict[str, int]
+# THE FIX: Add metric and role to the Score model
+class Score(BaseModel):
+    metric: str
+    role: str
+    value: float
+    ms: int
+
+class InterestProfile(BaseModel):
+    R: int
+    I: int
+    A: int
+    S: int
+    E: int
+    C: int
+class ValuesProfile(BaseModel):
+    values: Dict[str, int]
+class StylesProfile(BaseModel):
+    styles: Dict[str, int]
 
 # --- Static Files ---
 app.mount("/static", StaticFiles(directory="public"), name="static")
@@ -103,7 +117,7 @@ async def register_user(form_data: OAuth2PasswordRequestForm = Depends()):
             cur.execute("SELECT * FROM users WHERE username = %s", (form_data.username,))
             if cur.fetchone():
                 raise HTTPException(status_code=400, detail="Username already registered")
-            
+
             hashed_password = get_password_hash(form_data.password)
             cur.execute("INSERT INTO users (username, hashed_password) VALUES (%s, %s)",
                         (form_data.username, hashed_password))
@@ -131,16 +145,16 @@ def get_matches(current_user: User = Depends(get_current_user)):
     finally:
         if conn: db.return_db_connection(conn)
 
-# THE FIX: This endpoint is now correctly included in the file.
-@app.post("/save_score/{metric}/{role}")
-def save_score(metric: str, role: str, score_data: Score, current_user: User = Depends(get_current_user)):
+# THE FIX: This endpoint now gets data from the body, not the URL.
+@app.post("/save_score")
+def save_score(score_data: Score, current_user: User = Depends(get_current_user)):
     user_id = current_user.username
     conn = None
     try:
         conn = db.get_db_connection()
         with conn.cursor() as cur:
             cur.execute("INSERT INTO scores (user_id, role, metric, value, ms) VALUES (%s, %s, %s, %s, %s)",
-                        (user_id, role, metric, score_data.value, score_data.ms))
+                        (user_id, score_data.role, score_data.metric, score_data.value, score_data.ms))
         conn.commit()
         return {"status": "success"}
     finally:
@@ -190,7 +204,7 @@ def get_job_details(soc_code: str, current_user: User = Depends(get_current_user
             job_info = cur.fetchone()
             if not job_info:
                 raise HTTPException(status_code=404, detail="Job not found.")
-            
+
             user_vector = _get_and_normalize_user_vector(cur, user_id)
             cur.execute("SELECT feature_name, normalized_value FROM job_profile_vectors WHERE soc_code = %s", (soc_code,))
             job_vector = {row['feature_name']: row['normalized_value'] for row in cur.fetchall()}
@@ -205,7 +219,7 @@ def get_job_details(soc_code: str, current_user: User = Depends(get_current_user
                     "user_score": round(user_score * 100, 1),
                     "job_score": round(job_vector.get(feature, 0) * 100, 1)
                 })
-            
+
             return {
                 "title": job_info['title'],
                 "description": job_info['description'],
