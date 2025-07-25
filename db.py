@@ -1,32 +1,42 @@
 import os
 import psycopg2
-from psycopg2.extras import DictCursor
+from psycopg2 import pool
 from sqlalchemy import create_engine
 
-# --- Production Settings (from Fly.io secrets) ---
+# --- Database Configuration ---
 DATABASE_URL = os.getenv("DATABASE_URL")
+IS_PRODUCTION = "fly.io" in os.getenv("FLY_APP_NAME", "")
 
 # --- Local Development Settings (fallback) ---
 if not DATABASE_URL:
     DB_NAME = "pathforge_db"
-    DB_USER = "thomaskrane" # Your macOS username
+    DB_USER = "thomaskrane"  # Your macOS username
     DB_HOST = "localhost"
     DB_PORT = "5432"
     DATABASE_URL = f"postgresql://{DB_USER}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
-# --- SQLAlchemy Correction ---
-# Tell SQLAlchemy to use the psycopg2 driver explicitly
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg2://", 1)
+# --- Connection Pool ---
+# Create a single connection pool for the entire application
+# Min connections: 1, Max connections: 10
+db_pool = psycopg2.pool.SimpleConnectionPool(1, 10, dsn=DATABASE_URL)
 
-
-# For regular connections in FastAPI
 def get_db_connection():
-    # psycopg2 itself doesn't need the "+psycopg2" part
-    conn_url = DATABASE_URL.replace("+psycopg2", "")
-    conn = psycopg2.connect(conn_url)
-    return conn
+    """Gets a connection from the pool."""
+    return db_pool.getconn()
 
-# For pandas .to_sql() functions
+def return_db_connection(conn):
+    """Returns a connection to the pool."""
+    db_pool.putconn(conn)
+
+# --- SQLAlchemy Engine (for data loading scripts) ---
 def get_db_engine():
-    return create_engine(DATABASE_URL)
+    """
+    Creates a SQLAlchemy engine.
+    Note: SQLAlchemy has its own connection pooling.
+    """
+    # Use the correct dialect for SQLAlchemy
+    sa_database_url = DATABASE_URL
+    if sa_database_url.startswith("postgres://"):
+        sa_database_url = sa_database_url.replace("postgres://", "postgresql+psycopg2://", 1)
+    return create_engine(sa_database_url)
+

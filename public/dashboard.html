@@ -9,7 +9,6 @@
         #matches-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1em; }
         .match-card:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         .match-card h3 { color: var(--primary-blue); }
-        .match-card ul { padding-left: 20px; margin-bottom: 0; font-size: 0.9em; }
     </style>
 </head>
 <body>
@@ -17,36 +16,68 @@
         <a href="/static/index.html" class="logo">PathForge</a>
         <nav>
             <a href="/static/assessment.html">Aptitude Tests</a>
-            <a href="/static/interests.html">Profilers</a>
-            <a href="/static/login.html">Logout</a>
+            <!-- THE FIX: This link now correctly points to the new profilers.html page -->
+            <a href="/static/profilers.html">Profilers</a>
+            <a href="#" id="logout-button">Logout</a>
         </nav>
     </header>
     <main>
-        <h1 id="dashboard-title">Your Top Career Matches</h1>
-        <p>Based on your assessment results, here are the careers that best match your demonstrated aptitudes. Click any card for a detailed breakdown.</p>
+        <h1>Your Top Career Matches</h1>
+        <p>Based on your assessment results, here are the careers that best match your profile. Click any card for a detailed breakdown.</p>
         <div id="matches-container"><p><i>Loading your matches...</i></p></div>
     </main>
     <script>
         document.addEventListener('DOMContentLoaded', async function() {
-            const userId = localStorage.getItem('pathforge_user') || 'guest';
+            const token = localStorage.getItem('pathforge_token');
             const container = document.getElementById('matches-container');
-            document.getElementById('dashboard-title').textContent = `Top Career Matches for: ${userId}`;
+            const loginUrl = window.location.origin + '/static/login.html';
+
+            if (!token) {
+                window.location.href = loginUrl;
+                return;
+            }
+
             try {
-                const res = await fetch(`/matches/${userId}`);
-                if (!res.ok) throw new Error('Could not fetch matches. Please complete all assessments first.');
-                const data = await res.json();
-                container.innerHTML = '';
-                if (!data.matches || data.matches.length === 0) {
-                    container.innerHTML = '<p>No matches found. Please complete all assessments to see your results.</p>';
+                const res = await fetch('/matches', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (res.status === 401) {
+                    localStorage.removeItem('pathforge_token');
+                    window.location.href = loginUrl;
                     return;
                 }
+                
+                if (res.status === 404) {
+                    container.innerHTML = `
+                        <p>Your profile is not yet complete.</p>
+                        <p>Please complete all aptitude tests and profilers to see your matches.</p>
+                        <a href="/static/assessment.html" class="button">Start Assessments</a>
+                    `;
+                    return;
+                }
+                
+                if (!res.ok) throw new Error('An error occurred while fetching your matches.');
+                
+                const data = await res.json();
+                container.innerHTML = '';
+
+                if (!data.matches || data.matches.length === 0) {
+                     container.innerHTML = `
+                        <p>Your profile is not yet complete.</p>
+                        <p>Please complete all aptitude tests and profilers to see your matches.</p>
+                        <a href="/static/assessment.html" class="button">Start Assessments</a>
+                    `;
+                    return;
+                }
+
                 for (const match of data.matches) {
                     const link = document.createElement('a');
                     link.href = `/static/details.html?soc=${match.soc_code}`;
                     link.className = 'card-link';
                     const card = document.createElement('div');
                     card.className = 'match-card';
-                    card.innerHTML = `<h3>${match.title}</h3><p>Match Score: ${match.match_score}</p>`;
+                    card.innerHTML = `<h3>${match.title}</h3><p>Match Score: ${match.match_score}%</p>`;
                     link.appendChild(card);
                     container.appendChild(link);
                 }
@@ -54,6 +85,13 @@
                 container.innerHTML = `<p style="color: red;">${error.message}</p>`;
             }
         });
+
+        document.getElementById('logout-button').addEventListener('click', function(event) {
+            event.preventDefault();
+            localStorage.removeItem('pathforge_token');
+            window.location.href = loginUrl;
+        });
     </script>
 </body>
 </html>
+

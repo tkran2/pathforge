@@ -5,162 +5,247 @@
     <title>Profilers</title>
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        .profiler-tabs { margin-bottom: 2em; border-bottom: 2px solid #007bff; padding-bottom: 0; display: flex; }
-        .profiler-tabs button { background: none; border: none; padding: 12px 20px; cursor: pointer; font-size: 1rem; color: #555; border-bottom: 2px solid transparent; margin-bottom: -2px; }
-        .profiler-tabs button.active { color: #007bff; border-bottom-color: #007bff; font-weight: bold; }
-        .profiler-content { display: none; }
-        .profiler-content.active { display: block; }
-        .profiler-question { display: flex; justify-content: space-between; align-items: center; padding: 12px 8px; border-bottom: 1px solid #eee; }
-        .profiler-question label { flex-grow: 1; }
-        .profiler-options { display: flex; gap: 5px; }
-        .profiler-options button, .profiler-options span { border: 1px solid #ccc; padding: 6px 12px; cursor: pointer; background: white; border-radius: 4px; }
-        .profiler-options button.selected, .profiler-options span.selected { background-color: #007bff; color: white; border-color: #007bff; }
-        .paired-comparison { text-align: center; margin: 2em 0; }
-        .paired-comparison .pair-btn { font-size: 1.2rem; padding: 20px; width: 45%; }
-        .finish-button { margin-top: 2em; padding: 12px 20px; width: 100%; }
+        .tab-container { display: flex; border-bottom: 1px solid #ccc; margin-bottom: 1em; }
+        .tab { padding: 10px 20px; cursor: pointer; border: 1px solid transparent; border-bottom: none; }
+        .tab.active { border-color: #ccc; border-bottom: 1px solid white; background-color: white; font-weight: bold; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .question { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .question-buttons button { margin-left: 5px; }
+        .rating-group { display: flex; justify-content: space-between; max-width: 200px; }
+        .rating-group label { display: block; text-align: center; }
+        .choice-container { display: flex; justify-content: space-around; align-items: center; margin: 2em 0; }
+        .choice-btn { width: 45%; height: 150px; font-size: 1.2em; }
     </style>
 </head>
 <body>
     <header class="main-header">
         <a href="/static/index.html" class="logo">PathForge</a>
         <nav>
-            <a href="/static/assessment.html">Aptitudes</a>
             <a href="/static/dashboard.html">My Matches</a>
-            <a href="/static/login.html">Logout</a>
+            <a href="/static/assessment.html">Aptitude Tests</a>
+            <a href="#" id="logout-button">Logout</a>
         </nav>
     </header>
-
     <main>
         <h1>Profilers</h1>
-        <div class="profiler-tabs">
-            <button id="tab-interests" class="active">Interests</button>
-            <button id="tab-values">Work Values</button>
-            <button id="tab-styles">Work Styles</button>
+        <div class="tab-container">
+            <div class="tab active" data-tab="interests">Interests</div>
+            <div class="tab" data-tab="values">Values</div>
+            <div class="tab" data-tab="styles">Styles</div>
         </div>
 
-        <div id="content-interests" class="profiler-content active"></div>
-        <div id="content-values" class="profiler-content"></div>
-        <div id="content-styles" class="profiler-content"></div>
+        <!-- Interests Tab -->
+        <div id="interests" class="tab-content active">
+            <p>Rate how much you would enjoy doing each of the following activities.</p>
+            <div id="interests-questionnaire"></div>
+            <button id="interests-finish-btn" class="button">Finish & Save Profile</button>
+            <div id="interests-results-container" style="display: none;" class="detail-card">
+                <h2>Your Interest Profile (RIASEC)</h2>
+                <pre id="interests-results-output"></pre>
+            </div>
+        </div>
+
+        <!-- Values Tab -->
+        <div id="values" class="tab-content">
+            <p id="values-instructions">Which of these is more important to you in a job?</p>
+            <div id="values-game-area">
+                <div id="choice-container">
+                    <button id="btn-a" class="choice-btn"></button>
+                    <span style="font-size: 1.5em;">OR</span>
+                    <button id="btn-b" class="choice-btn"></button>
+                </div>
+            </div>
+            <div id="values-results-container" style="display: none;" class="detail-card">
+                <h2>Your Top Work Values</h2>
+                <pre id="values-results-output"></pre>
+            </div>
+        </div>
+
+        <!-- Styles Tab -->
+        <div id="styles" class="tab-content">
+            <p>On a scale of 1 (Lowest) to 5 (Highest), please rate yourself on the following personal styles.</p>
+            <div id="styles-questionnaire"></div>
+            <button id="styles-finish-btn" class="button">Finish & Save Profile</button>
+            <div id="styles-results-container" style="display: none;" class="detail-card">
+                <h2>Your Work Styles Profile</h2>
+                <pre id="styles-results-output"></pre>
+            </div>
+        </div>
     </main>
 
     <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // --- PROFILER SETUP & DATA ---
-        const interestsData = [ "Work with tools and machinery", "Solve complex puzzles or problems", "Design graphics or websites", "Teach or train other people", "Start my own business", "Organize files and records", "Work outdoors", "Do research in a lab", "Write stories or music", "Help people with their problems", "Persuade or sell to others", "Work with a clear set of rules" ];
-        const stylesData = [ "Attention to Detail", "Integrity", "Cooperation", "Adaptability/Flexibility", "Initiative", "Stress Tolerance", "Persistence", "Leadership" ];
-        const valuesData = [ "Achievement", "Independence", "Recognition", "Relationships", "Support", "Working Conditions" ];
-        const valuePairs = [ ["Achievement", "Independence"], ["Recognition", "Relationships"], ["Support", "Working Conditions"], ["Achievement", "Recognition"], ["Independence", "Support"], ["Relationships", "Working Conditions"], ["Achievement", "Relationships"], ["Independence", "Working Conditions"], ["Recognition", "Support"], ["Achievement", "Support"], ["Independence", "Relationships"], ["Recognition", "Working Conditions"], ["Achievement", "Working Conditions"], ["Independence", "Recognition"], ["Relationships", "Support"] ];
+        // --- Authentication & Setup ---
+        const token = localStorage.getItem('pathforge_token');
+        const loginUrl = window.location.origin + '/static/login.html';
+        if (!token) {
+            window.location.href = loginUrl;
+        }
+        document.getElementById('logout-button').addEventListener('click', function(e) {
+            e.preventDefault();
+            localStorage.removeItem('pathforge_token');
+            window.location.href = loginUrl;
+        });
 
-        const tabMap = {
-            "interests": document.getElementById('content-interests'),
-            "values": document.getElementById('content-values'),
-            "styles": document.getElementById('content-styles')
-        };
-
-        // --- UI TEMPLATES based on your screenshots ---
-        const interestsHTML = interestsData.map((q, i) => `
-            <div class="profiler-question" data-question-id="q${i}">
-                <label>${q}</label>
-                <div class="profiler-options">
-                    <button value="5">Like</button><button value="4">Unsure</button><button value="3">Dislike</button>
-                </div>
-            </div>`).join('') + '<button class="finish-button" id="finish-interests">Finish & Save Profiler</button>';
-
-        const stylesHTML = stylesData.map((q, i) => `
-            <div class="profiler-question" data-question-id="q${i}">
-                <label>${q}</label>
-                <div class="profiler-options">
-                    <span value="1">1</span><span value="2">2</span><span value="3">3</span><span value="4">4</span><span value="5">5</span>
-                </div>
-            </div>`).join('') + '<button class="finish-button" id="finish-styles">Finish & Save Profiler</button>';
-        
-        const resultsHTML = `
-            <div style="text-align:center;">
-                <h2>Thank You!</h2>
-                <p>You have already completed this profiler.</p>
-                <a href="/static/dashboard.html" class="button">View My Matches</a>
-            </div>`;
-
-        // --- TAB SWITCHING LOGIC ---
-        document.querySelectorAll('.profiler-tabs button').forEach(tab => {
-            tab.addEventListener('click', (e) => {
-                document.querySelectorAll('.profiler-tabs button').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.profiler-content').forEach(c => c.classList.remove('active'));
-                e.target.classList.add('active');
-                tabMap[e.target.id.replace('tab-', '')].classList.add('active');
+        // --- Tab Switching Logic ---
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                tabContents.forEach(c => c.classList.remove('active'));
+                document.getElementById(tab.dataset.tab).classList.add('active');
             });
         });
 
-        // --- DYNAMICALLY BUILD & ATTACH LOGIC ---
-        function setupProfiler(name, contentHTML, finishBtnId) {
-            const container = tabMap[name];
-            container.innerHTML = contentHTML;
+        // --- INTERESTS PROFILER (from your original interests.html) ---
+        (function() {
+            const questions = [
+                { text: "Work with tools and machinery", type: 'Realistic' }, { text: "Solve complex puzzles or problems", type: 'Investigative' },
+                { text: "Design graphics or websites", type: 'Artistic' }, { text: "Teach or train other people", type: 'Social' },
+                { text: "Start my own business", type: 'Enterprising' }, { text: "Organize files and records", type: 'Conventional' },
+                { text: "Work outdoors", type: 'Realistic' }, { text: "Do research in a lab", type: 'Investigative' },
+                { text: "Write stories or music", type: 'Artistic' }, { text: "Help people with their problems", type: 'Social' },
+                { text: "Persuade or sell to others", type: 'Enterprising' }, { text: "Work with a clear set of rules", type: 'Conventional' }
+            ];
+            const questionnaireDiv = document.getElementById('interests-questionnaire');
+            const finishBtn = document.getElementById('interests-finish-btn');
+            const resultsContainer = document.getElementById('interests-results-container');
+            const resultsOutput = document.getElementById('interests-results-output');
+            let userAnswers = {};
 
-            container.querySelectorAll('.profiler-options').forEach(group => {
-                group.addEventListener('click', (e) => {
-                    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SPAN') {
-                        Array.from(e.currentTarget.children).forEach(child => child.classList.remove('selected'));
-                        e.target.classList.add('selected');
-                    }
-                });
+            questions.forEach((q, index) => {
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'question';
+                questionDiv.innerHTML = `<span class="question-text">${q.text}</span><div class="question-buttons"><button data-q-index="${index}" data-value="2">Like</button><button data-q-index="${index}" data-value="1">Unsure</button><button data-q-index="${index}" data-value="0">Dislike</button></div>`;
+                questionnaireDiv.appendChild(questionDiv);
             });
-            // Add logic for saving data when finish button is clicked
-            document.getElementById(finishBtnId).addEventListener('click', () => {
-                // ... Logic to collect and save data for this profiler ...
-                alert(`${name} profiler finished and saved!`);
-                container.innerHTML = resultsHTML; // Show "Thank You" message
-            });
-        }
-        
-// --- PAIRED COMPARISON LOGIC for VALUES ---
-        let currentValuePairIndex = 0;
-        const valueScores = valuesData.reduce((acc, val) => ({ ...acc, [val]: 0 }), {});
 
-        function displayValuePair() {
-            if (currentValuePairIndex >= valuePairs.length) {
-                // --- THIS IS THE NEW, CORRECTED PART ---
-                tabMap.values.innerHTML = '<h2>Finished! Saving your profile...</h2>';
+            questionnaireDiv.addEventListener('click', function(e) {
+                if (e.target.tagName === 'BUTTON') {
+                    const qIndex = e.target.dataset.qIndex;
+                    userAnswers[qIndex] = { type: questions[qIndex].type, value: parseInt(e.target.dataset.value, 10) };
+                    e.target.parentElement.querySelectorAll('button').forEach(btn => btn.style.backgroundColor = '');
+                    e.target.style.backgroundColor = '#a0e0a0';
+                }
+            });
+
+            finishBtn.addEventListener('click', async function() {
+                const riasecScores = { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 };
+                for (const qIndex in userAnswers) {
+                    const answer = userAnswers[qIndex];
+                    riasecScores[answer.type] += answer.value;
+                }
+                const profileText = `Realistic (R):     ${riasecScores.R}\nInvestigative (I): ${riasecScores.I}\nArtistic (A):      ${riasecScores.A}\nSocial (S):        ${riasecScores.S}\nEnterprising (E):  ${riasecScores.E}\nConventional (C):  ${riasecScores.C}`;
+                resultsOutput.textContent = profileText;
+                resultsContainer.style.display = 'block';
                 
-                // 1. Convert the tallied scores into the format the backend expects
-                const valuesPayload = Object.entries(valueScores).map(([name, score]) => {
-                    return { "value_name": name, "score": score };
-                });
-
-                // 2. Save the data
-                fetch('/save_values', {
+                await fetch('/save_interests', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: currentUser, values: valuesPayload })
-                }).then(() => {
-                    // 3. Show the final "Thank You" message
-                    tabMap.values.innerHTML = resultsHTML;
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(riasecScores)
                 });
-                return;
-            }
-            const [valA, valB] = valuePairs[currentValuePairIndex];
-            tabMap.values.innerHTML = `
-                <div class="paired-comparison">
-                    <h2>Which is more important to you in a job?</h2>
-                    <button class="pair-btn" data-value="${valA}">${valA}</button>
-                    <span>or</span>
-                    <button class="pair-btn" data-value="${valB}">${valB}</button>
-                </div>`;
-        }
-        
-        tabMap.values.addEventListener('click', (e) => {
-            if (e.target.classList.contains('pair-btn')) {
-                valueScores[e.target.dataset.value]++;
-                currentValuePairIndex++;
-                displayValuePair();
-            }
-        });
+                finishBtn.textContent = 'Profile Saved!';
+                finishBtn.disabled = true;
+            });
+        })();
 
-        // --- INITIALIZE PROFILERS ---
-        // In a real scenario, you would check completion status from a backend here.
-        setupProfiler('interests', interestsHTML, 'finish-interests');
-        setupProfiler('styles', stylesHTML, 'finish-styles');
-        displayValuePair(); // Start the values profiler
-    });
+        // --- VALUES PROFILER (from your original values.html) ---
+        (function() {
+            const values = [ "Achievement", "Independence", "Recognition", "Relationships", "Support", "Working Conditions" ];
+            const pairs = [];
+            for (let i = 0; i < values.length; i++) { for (let j = i + 1; j < values.length; j++) { pairs.push([values[i], values[j]]); } }
+            const shuffledPairs = pairs.sort(() => Math.random() - 0.5);
+            let currentPairIndex = 0;
+            const valueScores = Object.fromEntries(values.map(v => [v, 0]));
+            const instructionsEl = document.getElementById('values-instructions');
+            const gameArea = document.getElementById('values-game-area');
+            const btnA = document.getElementById('btn-a');
+            const btnB = document.getElementById('btn-b');
+            const resultsContainer = document.getElementById('values-results-container');
+            const resultsOutput = document.getElementById('values-results-output');
+
+            async function saveProfile(profile) {
+                await fetch('/save_values', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ values: profile })
+                });
+            }
+
+            function showResults() {
+                gameArea.style.display = 'none';
+                instructionsEl.textContent = 'Your profile has been saved!';
+                const sortedValues = Object.entries(valueScores).sort((a, b) => b[1] - a[1]);
+                let resultText = "Your ranked work values:\n\n";
+                sortedValues.forEach(([value, score], index) => { resultText += `${index + 1}. ${value} (Chosen ${score} times)\n`; });
+                resultsOutput.textContent = resultText;
+                resultsContainer.style.display = 'block';
+                saveProfile(valueScores);
+            }
+
+            function handleChoice(selectedValue) {
+                valueScores[selectedValue]++;
+                currentPairIndex++;
+                loadNextPair();
+            }
+
+            function loadNextPair() {
+                if (currentPairIndex >= shuffledPairs.length) { showResults(); return; }
+                const [valA, valB] = shuffledPairs[currentPairIndex];
+                btnA.textContent = valA;
+                btnB.textContent = valB;
+                instructionsEl.textContent = `Question ${currentPairIndex + 1} of ${shuffledPairs.length}: Which is more important?`;
+            }
+            btnA.addEventListener('click', () => handleChoice(btnA.textContent));
+            btnB.addEventListener('click', () => handleChoice(btnB.textContent));
+            loadNextPair();
+        })();
+
+        // --- STYLES PROFILER (from your original styles.html) ---
+        (function() {
+            const styles = [ "Attention to Detail", "Integrity", "Cooperation", "Adaptability/Flexibility", "Initiative", "Stress Tolerance", "Persistence", "Leadership" ];
+            const questionnaireDiv = document.getElementById('styles-questionnaire');
+            const finishBtn = document.getElementById('styles-finish-btn');
+            const resultsContainer = document.getElementById('styles-results-container');
+            const resultsOutput = document.getElementById('styles-results-output');
+            let userScores = {};
+
+            styles.forEach(style => {
+                userScores[style] = 3; // Default to 3
+                const questionDiv = document.createElement('div');
+                questionDiv.className = 'question';
+                let radioButtonsHTML = '';
+                for (let i = 1; i <= 5; i++) { radioButtonsHTML += `<label><input type="radio" name="${style}" value="${i}" ${i === 3 ? 'checked' : ''}>${i}</label>`; }
+                questionDiv.innerHTML = `<p><strong>${style}</strong></p><div class="rating-group">${radioButtonsHTML}</div>`;
+                questionnaireDiv.appendChild(questionDiv);
+            });
+
+            questionnaireDiv.addEventListener('change', e => { if (e.target.type === 'radio') userScores[e.target.name] = parseInt(e.target.value, 10); });
+
+            finishBtn.addEventListener('click', async function() {
+                let resultText = "Your self-assessed scores (out of 5):\n\n";
+                for (const style in userScores) { resultText += `${style}: ${'★'.repeat(userScores[style])}${'☆'.repeat(5 - userScores[style])}\n`; }
+                resultsOutput.textContent = resultText;
+                resultsContainer.style.display = 'block';
+                
+                // The scores are 1-5, but our model expects 0-1. We will normalize them here.
+                const normalizedScores = {};
+                for (const style in userScores) {
+                    normalizedScores[style] = (userScores[style] - 1) / 4.0;
+                }
+
+                await fetch('/save_styles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify({ styles: normalizedScores }) // Send normalized scores
+                });
+                finishBtn.textContent = 'Profile Saved!';
+                finishBtn.disabled = true;
+            });
+        })();
     </script>
 </body>
 </html>
+

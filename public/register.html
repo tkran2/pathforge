@@ -2,19 +2,19 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Login to PathForge</title>
+    <title>Register for PathForge</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <header class="main-header">
         <a href="/static/index.html" class="logo">PathForge</a>
         <nav>
-            <a href="/static/register.html">Register</a>
+            <a href="/static/login.html">Login</a>
         </nav>
     </header>
     <main>
-        <h1>Login</h1>
-        <form id="login-form">
+        <h1>Create an Account</h1>
+        <form id="register-form">
             <div class="form-group">
                 <label for="username">Username</label>
                 <input type="text" id="username" name="username" required>
@@ -23,34 +23,32 @@
                 <label for="password">Password</label>
                 <input type="password" id="password" name="password" required>
             </div>
-            <button type="submit" class="button">Login</button>
+            <button type="submit" class="button">Register</button>
         </form>
         <p id="message"></p>
     </main>
     <script>
-        document.getElementById('login-form').addEventListener('submit', async function(event) {
+        document.getElementById('register-form').addEventListener('submit', async function(event) {
             event.preventDefault();
             const messageEl = document.getElementById('message');
             const form = event.target;
             const formData = new FormData(form);
 
             try {
-                const response = await fetch('/token', {
+                const response = await fetch('/register', {
                     method: 'POST',
                     body: formData
                 });
 
                 if (response.ok) {
-                    const data = await response.json();
-                    // Store the token securely in localStorage
-                    localStorage.setItem('pathforge_token', data.access_token);
-                    messageEl.textContent = 'Login successful! Redirecting to dashboard...';
+                    messageEl.textContent = 'Registration successful! Redirecting to login...';
                     messageEl.style.color = 'green';
                     setTimeout(() => {
-                        window.location.href = '/static/dashboard.html';
-                    }, 1500);
+                        window.location.href = '/static/login.html';
+                    }, 2000);
                 } else {
-                    messageEl.textContent = 'Error: Incorrect username or password.';
+                    const data = await response.json();
+                    messageEl.textContent = `Error: ${data.detail || 'Registration failed.'}`;
                     messageEl.style.color = 'red';
                 }
             } catch (error) {

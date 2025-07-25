@@ -12,7 +12,7 @@
         <nav>
             <a href="/static/assessment.html">Assessments</a>
             <a href="/static/dashboard.html">My Matches</a>
-            <a href="/static/login.html">Logout</a>
+            <a href="#" id="logout-button">Logout</a>
         </nav>
     </header>
 
@@ -21,7 +21,64 @@
     </main>
 
     <script>
-        // Full script for fetching and displaying job details is included here
+        document.addEventListener('DOMContentLoaded', async function() {
+            const token = localStorage.getItem('pathforge_token');
+            const container = document.getElementById('details-container');
+            const socCode = new URLSearchParams(window.location.search).get('soc');
+            // FIX: Construct a full, valid URL for redirection to prevent errors.
+            const loginUrl = window.location.origin + '/static/login.html';
+
+            if (!token) {
+                window.location.href = loginUrl;
+                return;
+            }
+            if (!socCode) {
+                container.innerHTML = '<p style="color: red;">Error: No job code specified.</p>';
+                return;
+            }
+
+            try {
+                const res = await fetch(`/job_details/${socCode}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (res.status === 401) {
+                    localStorage.removeItem('pathforge_token');
+                    window.location.href = loginUrl;
+                    return;
+                }
+                if (!res.ok) throw new Error('Could not fetch job details.');
+
+                const data = await res.json();
+                
+                let comparisonHtml = '<h2>Profile Match Breakdown</h2>';
+                for (const category in data.profile_match) {
+                    comparisonHtml += `<h3>${category.charAt(0).toUpperCase() + category.slice(1)}</h3><ul>`;
+                    data.profile_match[category].forEach(item => {
+                        comparisonHtml += `<li><strong>${item.name}:</strong> Your Score: ${item.user_score}, Job Importance: ${item.job_score}</li>`;
+                    });
+                    comparisonHtml += '</ul>';
+                }
+
+                container.innerHTML = `
+                    <h1>${data.title}</h1>
+                    <p>${data.description}</p>
+                    ${comparisonHtml}
+                `;
+
+            } catch (error) {
+                container.innerHTML = `<p style="color: red;">${error.message}</p>`;
+            }
+        });
+
+        document.getElementById('logout-button').addEventListener('click', function(event) {
+            event.preventDefault();
+            localStorage.removeItem('pathforge_token');
+            // FIX: Use the full, valid URL for redirection here as well.
+            const loginUrl = window.location.origin + '/static/login.html';
+            window.location.href = loginUrl;
+        });
     </script>
 </body>
 </html>
+
