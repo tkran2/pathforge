@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Profilers</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .profiler-tabs { margin-bottom: 2em; border-bottom: 2px solid #007bff; padding-bottom: 0; display: flex; }
+        .profiler-tabs button { background: none; border: none; padding: 12px 20px; cursor: pointer; font-size: 1rem; color: #555; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+        .profiler-tabs button.active { color: #007bff; border-bottom-color: #007bff; font-weight: bold; }
+        .profiler-content { display: none; }
+        .profiler-content.active { display: block; }
+        .profiler-question { display: flex; justify-content: space-between; align-items: center; padding: 12px 8px; border-bottom: 1px solid #eee; }
+        .profiler-question label { flex-grow: 1; }
+        .profiler-options { display: flex; gap: 5px; }
+        .profiler-options button, .profiler-options span { border: 1px solid #ccc; padding: 6px 12px; cursor: pointer; background: white; border-radius: 4px; }
+        .profiler-options button.selected, .profiler-options span.selected { background-color: #007bff; color: white; border-color: #007bff; }
+        .paired-comparison { text-align: center; margin: 2em 0; }
+        .paired-comparison .pair-btn { font-size: 1.2rem; padding: 20px; width: 45%; }
+        .finish-button { margin-top: 2em; padding: 12px 20px; width: 100%; }
+    </style>
+</head>
+<body>
+    <header class="main-header">
+        <a href="/static/index.html" class="logo">PathForge</a>
+        <nav>
+            <a href="/static/assessment.html">Aptitudes</a>
+            <a href="/static/dashboard.html">My Matches</a>
+            <a href="/static/login.html">Logout</a>
+        </nav>
+    </header>
+
+    <main>
+        <h1>Profilers</h1>
+        <div class="profiler-tabs">
+            <button id="tab-interests" class="active">Interests</button>
+            <button id="tab-values">Work Values</button>
+            <button id="tab-styles">Work Styles</button>
+        </div>
+
+        <div id="content-interests" class="profiler-content active"></div>
+        <div id="content-values" class="profiler-content"></div>
+        <div id="content-styles" class="profiler-content"></div>
+    </main>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- PROFILER SETUP & DATA ---
+        const interestsData = [ "Work with tools and machinery", "Solve complex puzzles or problems", "Design graphics or websites", "Teach or train other people", "Start my own business", "Organize files and records", "Work outdoors", "Do research in a lab", "Write stories or music", "Help people with their problems", "Persuade or sell to others", "Work with a clear set of rules" ];
+        const stylesData = [ "Attention to Detail", "Integrity", "Cooperation", "Adaptability/Flexibility", "Initiative", "Stress Tolerance", "Persistence", "Leadership" ];
+        const valuesData = [ "Achievement", "Independence", "Recognition", "Relationships", "Support", "Working Conditions" ];
+        const valuePairs = [ ["Achievement", "Independence"], ["Recognition", "Relationships"], ["Support", "Working Conditions"], ["Achievement", "Recognition"], ["Independence", "Support"], ["Relationships", "Working Conditions"], ["Achievement", "Relationships"], ["Independence", "Working Conditions"], ["Recognition", "Support"], ["Achievement", "Support"], ["Independence", "Relationships"], ["Recognition", "Working Conditions"], ["Achievement", "Working Conditions"], ["Independence", "Recognition"], ["Relationships", "Support"] ];
+
+        const tabMap = {
+            "interests": document.getElementById('content-interests'),
+            "values": document.getElementById('content-values'),
+            "styles": document.getElementById('content-styles')
+        };
+
+        // --- UI TEMPLATES based on your screenshots ---
+        const interestsHTML = interestsData.map((q, i) => `
+            <div class="profiler-question" data-question-id="q${i}">
+                <label>${q}</label>
+                <div class="profiler-options">
+                    <button value="5">Like</button><button value="4">Unsure</button><button value="3">Dislike</button>
+                </div>
+            </div>`).join('') + '<button class="finish-button" id="finish-interests">Finish & Save Profiler</button>';
+
+        const stylesHTML = stylesData.map((q, i) => `
+            <div class="profiler-question" data-question-id="q${i}">
+                <label>${q}</label>
+                <div class="profiler-options">
+                    <span value="1">1</span><span value="2">2</span><span value="3">3</span><span value="4">4</span><span value="5">5</span>
+                </div>
+            </div>`).join('') + '<button class="finish-button" id="finish-styles">Finish & Save Profiler</button>';
+        
+        const resultsHTML = `
+            <div style="text-align:center;">
+                <h2>Thank You!</h2>
+                <p>You have already completed this profiler.</p>
+                <a href="/static/dashboard.html" class="button">View My Matches</a>
+            </div>`;
+
+        // --- TAB SWITCHING LOGIC ---
+        document.querySelectorAll('.profiler-tabs button').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                document.querySelectorAll('.profiler-tabs button').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.profiler-content').forEach(c => c.classList.remove('active'));
+                e.target.classList.add('active');
+                tabMap[e.target.id.replace('tab-', '')].classList.add('active');
+            });
+        });
+
+        // --- DYNAMICALLY BUILD & ATTACH LOGIC ---
+        function setupProfiler(name, contentHTML, finishBtnId) {
+            const container = tabMap[name];
+            container.innerHTML = contentHTML;
+
+            container.querySelectorAll('.profiler-options').forEach(group => {
+                group.addEventListener('click', (e) => {
+                    if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SPAN') {
+                        Array.from(e.currentTarget.children).forEach(child => child.classList.remove('selected'));
+                        e.target.classList.add('selected');
+                    }
+                });
+            });
+            // Add logic for saving data when finish button is clicked
+            document.getElementById(finishBtnId).addEventListener('click', () => {
+                // ... Logic to collect and save data for this profiler ...
+                alert(`${name} profiler finished and saved!`);
+                container.innerHTML = resultsHTML; // Show "Thank You" message
+            });
+        }
+        
+        // --- PAIRED COMPARISON LOGIC for VALUES ---
+        let currentValuePairIndex = 0;
+        const valueScores = valuesData.reduce((acc, val) => ({ ...acc, [val]: 0 }), {});
+
+        function displayValuePair() {
+            if (currentValuePairIndex >= valuePairs.length) {
+                tabMap.values.innerHTML = '<h2>Finished! Calculating...</h2>';
+                alert('Values profiler finished and saved!');
+                console.log(valueScores);
+                // ... Logic to save valueScores ...
+                tabMap.values.innerHTML = resultsHTML;
+                return;
+            }
+            const [valA, valB] = valuePairs[currentValuePairIndex];
+            tabMap.values.innerHTML = `
+                <div class="paired-comparison">
+                    <h2>Which is more important to you in a job?</h2>
+                    <button class="pair-btn" data-value="${valA}">${valA}</button>
+                    <span>or</span>
+                    <button class="pair-btn" data-value="${valB}">${valB}</button>
+                </div>`;
+        }
+        
+        tabMap.values.addEventListener('click', (e) => {
+            if (e.target.classList.contains('pair-btn')) {
+                valueScores[e.target.dataset.value]++;
+                currentValuePairIndex++;
+                displayValuePair();
+            }
+        });
+
+        // --- INITIALIZE PROFILERS ---
+        // In a real scenario, you would check completion status from a backend here.
+        setupProfiler('interests', interestsHTML, 'finish-interests');
+        setupProfiler('styles', stylesHTML, 'finish-styles');
+        displayValuePair(); // Start the values profiler
+    });
+    </script>
+</body>
+</html>
