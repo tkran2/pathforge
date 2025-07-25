@@ -35,7 +35,6 @@
             <div class="tab" data-tab="styles">Styles</div>
         </div>
 
-        <!-- Interests Tab -->
         <div id="interests" class="tab-content active">
             <p>Rate how much you would enjoy doing each of the following activities.</p>
             <div id="interests-questionnaire"></div>
@@ -46,7 +45,6 @@
             </div>
         </div>
 
-        <!-- Values Tab -->
         <div id="values" class="tab-content">
             <p id="values-instructions">Which of these is more important to you in a job?</p>
             <div id="values-game-area">
@@ -62,7 +60,6 @@
             </div>
         </div>
 
-        <!-- Styles Tab -->
         <div id="styles" class="tab-content">
             <p>On a scale of 1 (Lowest) to 5 (Highest), please rate yourself on the following personal styles.</p>
             <div id="styles-questionnaire"></div>
@@ -99,7 +96,7 @@
             });
         });
 
-        // --- INTERESTS PROFILER (from your original interests.html) ---
+        // --- INTERESTS PROFILER ---
         (function() {
             const questions = [
                 { text: "Work with tools and machinery", type: 'Realistic' }, { text: "Solve complex puzzles or problems", type: 'Investigative' },
@@ -135,7 +132,7 @@
                 const riasecScores = { R: 0, I: 0, A: 0, S: 0, E: 0, C: 0 };
                 for (const qIndex in userAnswers) {
                     const answer = userAnswers[qIndex];
-                    riasecScores[answer.type] += answer.value;
+                    riasecScores[answer.type[0]] += answer.value; // Use first letter for key
                 }
                 const profileText = `Realistic (R):     ${riasecScores.R}\nInvestigative (I): ${riasecScores.I}\nArtistic (A):      ${riasecScores.A}\nSocial (S):        ${riasecScores.S}\nEnterprising (E):  ${riasecScores.E}\nConventional (C):  ${riasecScores.C}`;
                 resultsOutput.textContent = profileText;
@@ -151,7 +148,7 @@
             });
         })();
 
-        // --- VALUES PROFILER (from your original values.html) ---
+        // --- VALUES PROFILER ---
         (function() {
             const values = [ "Achievement", "Independence", "Recognition", "Relationships", "Support", "Working Conditions" ];
             const pairs = [];
@@ -203,7 +200,7 @@
             loadNextPair();
         })();
 
-        // --- STYLES PROFILER (from your original styles.html) ---
+        // --- STYLES PROFILER ---
         (function() {
             const styles = [ "Attention to Detail", "Integrity", "Cooperation", "Adaptability/Flexibility", "Initiative", "Stress Tolerance", "Persistence", "Leadership" ];
             const questionnaireDiv = document.getElementById('styles-questionnaire');
@@ -230,16 +227,12 @@
                 resultsOutput.textContent = resultText;
                 resultsContainer.style.display = 'block';
                 
-                // The scores are 1-5, but our model expects 0-1. We will normalize them here.
-                const normalizedScores = {};
-                for (const style in userScores) {
-                    normalizedScores[style] = (userScores[style] - 1) / 4.0;
-                }
-
+                // THE FIX: Send the raw userScores object, not a normalized version.
+                // The backend will handle all normalization from now on.
                 await fetch('/save_styles', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ styles: normalizedScores }) // Send normalized scores
+                    body: JSON.stringify({ styles: userScores }) // Send raw 1-5 scores
                 });
                 finishBtn.textContent = 'Profile Saved!';
                 finishBtn.disabled = true;
@@ -248,4 +241,3 @@
     </script>
 </body>
 </html>
-

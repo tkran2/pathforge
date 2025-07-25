@@ -30,7 +30,6 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: Optional[str] = None
 
-# THE FIX: Add metric and role to the Score model
 class Score(BaseModel):
     metric: str
     role: str
@@ -135,6 +134,8 @@ def get_matches(current_user: User = Depends(get_current_user)):
         conn = db.get_db_connection()
         with conn.cursor(cursor_factory=DictCursor) as cur:
             user_vector = _get_and_normalize_user_vector(cur, user_id)
+            if not user_vector:
+                raise HTTPException(status_code=404, detail="User profile is incomplete. Please take all assessments and profilers.")
             params = {'user_vector_json': json.dumps(user_vector)}
             match_query = queries.get_cosine_similarity_query()
             cur.execute(match_query, params)
@@ -145,7 +146,6 @@ def get_matches(current_user: User = Depends(get_current_user)):
     finally:
         if conn: db.return_db_connection(conn)
 
-# THE FIX: This endpoint now gets data from the body, not the URL.
 @app.post("/save_score")
 def save_score(score_data: Score, current_user: User = Depends(get_current_user)):
     user_id = current_user.username
@@ -166,7 +166,12 @@ def save_interests(profile: InterestProfile, current_user: User = Depends(get_cu
     conn = None
     try:
         conn = db.get_db_connection()
-        _save_profile_data(conn, user_id, "user_interests", profile.dict(), "interest")
+        interest_map = {
+            'R': 'Realistic', 'I': 'Investigative', 'A': 'Artistic',
+            'S': 'Social', 'E': 'Enterprising', 'C': 'Conventional'
+        }
+        data_dict = {interest_map[k]: v for k, v in profile.dict().items()}
+        _save_profile_data(conn, user_id, "user_interests", data_dict, "interest")
         return {"status": "success"}
     finally:
         if conn: db.return_db_connection(conn)
@@ -245,20 +250,41 @@ def _save_profile_data(conn, user_id: str, table_name: str, data: dict, column_p
 
 def _get_and_normalize_user_vector(cur, user_id: str) -> dict:
     user_vector = {}
+    
+    # --- 1. Abilities (from aptitude tests) ---
     cur.execute("SELECT metric, value FROM scores WHERE user_id = %s", (user_id,))
     raw_aptitudes = {row['metric']: row['value'] for row in cur.fetchall()}
-    rt_score = raw_aptitudes.get('Reaction Time', 1000)
-    best_rt, worst_rt = 150, 1000
-    clamped_rt = max(best_rt, min(rt_score, worst_rt))
-    user_vector['ability_Reaction Time'] = 1 - ((clamped_rt - best_rt) / (worst_rt - best_rt))
+    
+    # Handle Reaction Time (lower is better)
+    rt_score = raw_aptitudes.get('Reaction Time')
+    if rt_score is not None:
+        best_rt, worst_rt = 150, 1000
+        clamped_rt = max(best_rt, min(rt_score, worst_rt))
+        user_vector['ability_Reaction Time'] = 1 - ((clamped_rt - best_rt) / (worst_rt - best_rt))
+    
+    # Handle other aptitudes
     for metric, value in raw_aptitudes.items():
-        if metric in ['Number Facility', 'Spatial Orientation', 'Manual Dexterity']:
+        if metric in ['Number Facility', 'Spatial Orientation']:
             user_vector[f'ability_{metric}'] = value / 100.0
+        # THE FIX: Add the same inverted logic for Manual Dexterity (lower is better)
+        elif metric == 'Manual Dexterity':
+            best_dex, worst_dex = 3000, 15000 # Define reasonable min/max ms
+            clamped_dex = max(best_dex, min(value, worst_dex))
+            user_vector['ability_Manual Dexterity'] = 1 - ((clamped_dex - best_dex) / (worst_dex - best_dex))
+
+    # --- 2. Interests (RIASEC) ---
     cur.execute("SELECT interest_name, score FROM user_interests WHERE user_id = %s", (user_id,))
-    for row in cur.fetchall(): user_vector[f"interest_{row['interest_name']}"] = row['score'] / 2.0
+    for row in cur.fetchall():
+        user_vector[f"interest_{row['interest_name']}"] = row['score'] / 4.0
+
+    # --- 3. Values ---
     cur.execute("SELECT value_name, score FROM user_values WHERE user_id = %s", (user_id,))
-    for row in cur.fetchall(): user_vector[f"value_{row['value_name']}"] = float(row['score'])
+    for row in cur.fetchall():
+        user_vector[f"value_{row['value_name']}"] = row['score'] / 5.0
+
+    # --- 4. Styles ---
     cur.execute("SELECT style_name, score FROM user_styles WHERE user_id = %s", (user_id,))
-    for row in cur.fetchall(): user_vector[f"style_{row['style_name']}"] = float(row['score'])
-    if not user_vector: raise HTTPException(status_code=404, detail="User profile is incomplete.")
+    for row in cur.fetchall():
+        user_vector[f"style_{row['style_name']}"] = (row['score'] - 1) / 4.0
+        
     return user_vector
