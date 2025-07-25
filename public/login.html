@@ -3,24 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <title>Login - PathForge</title>
+    <link rel="stylesheet" href="/static/style.css">
     <style>
-        body { font-family: sans-serif; max-width: 400px; margin: 5em auto; text-align: center; }
-        input { width: 80%; padding: 8px; margin-bottom: 1em; }
+        /* Page-specific styles can still go here */
+        main { text-align: center; }
+        input { width: 80%; padding: 12px; margin-bottom: 1em; border: 1px solid var(--border-gray); border-radius: 5px; }
     </style>
 </head>
 <body>
-    <h1>PathForge</h1>
-    <p>Enter a username to begin.</p>
-    <input type="text" id="username" placeholder="e.g., JaneDoe">
-    <button id="login-btn">Start</button>
+    <header class="main-header">
+        <a href="/static/index.html" class="logo">PathForge</a>
+        <nav>
+            </nav>
+    </header>
+
+    <main>
+        <h1>Login</h1>
+        <p>Enter a username to begin.</p>
+        <input type="text" id="username" placeholder="e.g., JaneDoe">
+        <button id="login-btn">Start Assessments</button>
+    </main>
 
     <script>
         document.getElementById('login-btn').addEventListener('click', () => {
             const username = document.getElementById('username').value;
             if (username) {
-                // Save the username in the browser's storage
                 localStorage.setItem('pathforge_user', username);
-                // Redirect to the assessment page
                 window.location.href = '/static/assessment.html';
             } else {
                 alert('Please enter a username.');

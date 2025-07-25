@@ -1,0 +1,81 @@
+/* --- Fonts, Colors, and Variables --- */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+:root {
+    --primary-blue: #007bff;
+    --dark-text: #333;
+    --light-text: #555;
+    --background-gray: #f8f9fa;
+    --border-gray: #dee2e6;
+}
+
+/* --- Global Styles --- */
+body {
+    font-family: 'Poppins', sans-serif;
+    color: var(--dark-text);
+    background-color: #fff;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2em;
+}
+
+h1, h2, h3 {
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-gray);
+    padding-bottom: 0.5em;
+    margin-bottom: 0.8em;
+}
+
+a {
+    color: var(--primary-blue);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+button, .cta-button {
+    background-color: var(--primary-blue);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    font-size: 1em;
+    border-radius: 5px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.game-container, .detail-card {
+    background-color: var(--background-gray);
+    border: 1px solid var(--border-gray);
+    padding: 1.5em;
+    border-radius: 8px;
+    margin-bottom: 1.5em;
+}
+
+/* --- Header / Navigation --- */
+.main-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2em;
+    padding-bottom: 1em;
+    border-bottom: 2px solid var(--primary-blue);
+}
+
+.main-header .logo {
+    font-size: 1.5em;
+    font-weight: 600;
+    color: var(--primary-blue);
+    text-decoration: none;
+}
+.main-header nav a {
+    margin-left: 1.5em;
+}

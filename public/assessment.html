@@ -2,61 +2,74 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PathForge Assessments</title>
+    <title>Aptitude Assessments</title>
+    <link rel="stylesheet" href="/static/style.css">
     <style>
-        body { font-family: sans-serif; max-width: 600px; margin: 2em auto; line-height: 1.6; }
-        button { margin-top: 5px; cursor: pointer; }
-        .game-container { padding: 1em; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 2em; }
         #reaction-box { width: 200px; height: 200px; background-color: grey; cursor: pointer; margin-top: 10px; }
         #reaction-box.active { background-color: #4CAF50; }
-        .nav-links { margin-bottom: 2em; }
         #folding-sequence { display: flex; justify-content: space-around; align-items: center; }
         #folding-sequence svg { border: 1px solid #eee; }
         #spatial-options { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 1em; }
         #spatial-options button { padding: 10px; border: 1px solid #ddd; height: 120px; }
+        #dexterity-canvas { border: 1px solid black; cursor: crosshair; }
     </style>
 </head>
 <body>
-    <div class="nav-links">
-        <a href="/static/interests.html">Interest Profiler</a> | <a href="/static/values.html">Values Profiler</a> | <a href="/static/styles.html">Styles Profiler</a> | <a href="/static/dashboard.html">View Matches</a> | <a href="/static/login.html">Logout</a>
-    </div>
-    <h1>PathForge Assessments</h1>
+    <header class="main-header">
+        <a href="/static/index.html" class="logo">PathForge</a>
+        <nav>
+            <a href="/static/interests.html">Profilers</a>
+            <a href="/static/dashboard.html">My Matches</a>
+            <a href="/static/login.html">Logout</a>
+        </nav>
+    </header>
 
-    <div class="game-container">
-        <h3>Assessment 1: Reaction Time</h3>
-        <p>Click the box as soon as it turns green. Complete 5 rounds.</p>
-        <button id="start-reaction">Start Game</button>
-        <div id="reaction-result" style="margin-top: 10px;"></div>
-        <div id="reaction-box"></div>
-    </div>
-    <div class="game-container">
-        <h3>Assessment 2: Number Facility</h3>
-        <p>Answer all 4 questions.</p>
-        <button id="start-sequence">Start Game</button>
-        <div id="sequence-game-area" style="display: none;">
-            <p>What number comes next in this sequence?</p>
-            <div id="sequence-problem" style="font-size: 1.5em; font-weight: bold; margin: 10px 0;"></div>
-            <input type="number" id="sequence-answer" placeholder="Your Answer">
-            <button id="submit-sequence">Submit</button>
+    <main>
+        <h1>Aptitude Assessments</h1>
+
+        <div class="game-container">
+            <h3>Assessment 1: Reaction Time</h3>
+            <p>Click the box as soon as it turns green. Complete 5 rounds.</p>
+            <button id="start-reaction">Start Game</button>
+            <div id="reaction-result" style="margin-top: 10px;"></div>
+            <div id="reaction-box"></div>
         </div>
-        <div id="sequence-result" style="margin-top: 10px;"></div>
-    </div>
 
-    <div class="game-container">
-        <h3>Assessment 3: Spatial Reasoning</h3>
-        <p>A piece of paper is folded and a hole is punched. Select the pattern that shows the paper when unfolded.</p>
-        <button id="start-spatial">Start Game</button>
-        <div id="spatial-game-area" style="display: none;">
-            <div id="folding-sequence"></div>
-            <hr style="margin: 1.5em 0;">
-            <p style="text-align:center;"><strong>Which pattern is correct?</strong></p>
-            <div id="spatial-options"></div>
+        <div class="game-container">
+            <h3>Assessment 2: Number Facility</h3>
+            <p>Answer all 4 questions.</p>
+            <button id="start-sequence">Start Game</button>
+            <div id="sequence-game-area" style="display: none;">
+                <p>What number comes next in this sequence?</p>
+                <div id="sequence-problem" style="font-size: 1.5em; font-weight: bold; margin: 10px 0;"></div>
+                <input type="number" id="sequence-answer" placeholder="Your Answer">
+                <button id="submit-sequence">Submit</button>
+            </div>
+            <div id="sequence-result" style="margin-top: 10px;"></div>
         </div>
-        <div id="spatial-result" style="margin-top: 10px;"></div>
-    </div>
 
-<script>
+        <div class="game-container">
+            <h3>Assessment 3: Spatial Reasoning</h3>
+            <p>A piece of paper is folded and a hole is punched. Select the pattern that shows the paper when unfolded.</p>
+            <button id="start-spatial">Start Game</button>
+            <div id="spatial-game-area" style="display: none;">
+                <div id="folding-sequence"></div><hr style="margin: 1.5em 0;">
+                <p style="text-align:center;"><strong>Which pattern is correct?</strong></p>
+                <div id="spatial-options"></div>
+            </div>
+            <div id="spatial-result" style="margin-top: 10px;"></div>
+        </div>
+
+        <div class="game-container">
+            <h3>Assessment 4: Manual Dexterity</h3>
+            <p>Click "Start," then move your mouse through each checkpoint in order as quickly as you can.</p>
+            <button id="start-dexterity">Start Game</button>
+            <div id="dexterity-result" style="margin-top: 10px;"></div>
+            <svg id="dexterity-canvas" width="100%" height="200"></svg>
+        </div>
+    </main>
+
+    <script>
     document.addEventListener('DOMContentLoaded', function() {
         const currentUser = localStorage.getItem('pathforge_user') || 'guest';
         async function postScore(userId, role, metric, value, ms) {
@@ -67,87 +80,17 @@
             });
         }
 
-        // --- REACTION TIME & NUMBER FACILITY LOGIC (Full logic included) ---
+        // --- REACTION TIME GAME ---
         const reactionBox = document.getElementById('reaction-box'); const startReactionBtn = document.getElementById('start-reaction'); const reactionResultEl = document.getElementById('reaction-result'); let startTime, reactionTimes = [], round = 0, maxRounds = 5; startReactionBtn.addEventListener('click', startReactionGame); function startReactionGame() { reactionTimes = []; round = 0; startReactionBtn.disabled = true; startReactionBtn.textContent = 'Game in progress...'; reactionBox.style.display = 'block'; reactionResultEl.textContent = ''; nextReactionRound(); } function nextReactionRound() { if (round >= maxRounds) { endReactionGame(); return; } round++; reactionResultEl.textContent = `Get ready for round ${round}...`; reactionBox.classList.remove('active'); setTimeout(() => { startTime = Date.now(); reactionBox.classList.add('active'); }, Math.random() * 2500 + 1000); } reactionBox.addEventListener('click', () => { if (startTime) { const reactionTime = Date.now() - startTime; reactionTimes.push(reactionTime); reactionResultEl.textContent = `Round ${round} result: ${reactionTime} ms`; startTime = null; reactionBox.classList.remove('active'); setTimeout(nextReactionRound, 1000); } }); function endReactionGame() { const average = Math.round(reactionTimes.reduce((a, b) => a + b, 0) / reactionTimes.length); reactionResultEl.textContent = `Final average: ${average} ms.`; reactionBox.style.display = 'none'; startReactionBtn.textContent = 'Play Again'; startReactionBtn.disabled = false; postScore(currentUser, 'any', 'Reaction Time', average, average); }
+
+        // --- NUMBER FACILITY GAME ---
         const sequenceProblems = [ { sequence: "2, 4, 8, 16", answer: 32 }, { sequence: "4, 9, 14, 19", answer: 24 }, { sequence: "30, 28, 26, 24", answer: 22 }, { sequence: "1, 4, 9, 16", answer: 25 } ]; let shuffledSequence = [], currentSequenceIndex = 0, correctSequence = 0; const startSequenceBtn = document.getElementById('start-sequence'); const sequenceGameArea = document.getElementById('sequence-game-area'); const sequenceProblemEl = document.getElementById('sequence-problem'); const sequenceAnswerEl = document.getElementById('sequence-answer'); const submitSequenceBtn = document.getElementById('submit-sequence'); const sequenceResultEl = document.getElementById('sequence-result'); startSequenceBtn.addEventListener('click', startSequenceGame); submitSequenceBtn.addEventListener('click', checkSequenceAnswer); function startSequenceGame() { shuffledSequence = [...sequenceProblems].sort(() => 0.5 - Math.random()); currentSequenceIndex = 0; correctSequence = 0; startSequenceBtn.disabled = true; startSequenceBtn.textContent = 'Game in progress...'; sequenceGameArea.style.display = 'block'; sequenceResultEl.textContent = ''; loadNextSequenceProblem(); } function loadNextSequenceProblem() { sequenceProblemEl.textContent = shuffledSequence[currentSequenceIndex].sequence; sequenceAnswerEl.value = ''; sequenceAnswerEl.focus(); sequenceResultEl.textContent = `Question ${currentSequenceIndex + 1} of ${shuffledSequence.length}`; } function checkSequenceAnswer() { if (parseInt(sequenceAnswerEl.value, 10) === shuffledSequence[currentSequenceIndex].answer) correctSequence++; currentSequenceIndex++; if (currentSequenceIndex < shuffledSequence.length) loadNextSequenceProblem(); else endSequenceGame(); } function endSequenceGame() { sequenceGameArea.style.display = 'none'; const finalScore = Math.round(correctSequence / shuffledSequence.length * 100); sequenceResultEl.textContent = `Final Score: ${correctSequence}/${shuffledSequence.length} correct (${finalScore}%)`; startSequenceBtn.textContent = 'Play Again'; startSequenceBtn.disabled = false; postScore(currentUser, 'any', 'Number Facility', finalScore, -1); }
 
         // --- SPATIAL REASONING (Paper Folding) ---
-        const arrow = (transform = "") => `<path d="M65 50 L85 40 M65 50 L85 60" stroke="gray" stroke-width="3" fill="none" transform="${transform}"/>`;
-        const baseRect = `<rect x="0" y="0" width="100" height="100" stroke="black" fill="white"/>`;
-        const problems = [
-            { // Problem 1: Quarter fold, corner punch
-                folds: [ `<svg width="100" height="100"><rect x="0" y="0" width="100" height="100" stroke="black" fill="white"/><line x1="50" y1="0" x2="50" y2="100" stroke-dasharray="4" stroke="gray"/>${arrow()}</svg>`, `<svg width="50" height="100"><rect x="0" y="0" width="50" height="100" stroke="black" fill="white"/><line x1="0" y1="50" x2="50" y2="50" stroke-dasharray="4" stroke="gray"/><path d="M25 65 L15 85 M25 65 L35 85" stroke="gray" stroke-width="3" fill="none"/></svg>`, `<svg width="50" height="50"><rect x="0" y="0" width="50" height="50" stroke="black" fill="white"/><circle cx="35" cy="15" r="5" fill="black"/></svg>` ],
-                options: [ `<svg>${baseRect}<circle cx="35" cy="15" r="5"/><circle cx="65" cy="15" r="5"/><circle cx="35" cy="85" r="5"/><circle cx="65" cy="85" r="5"/></svg>`, `<svg>${baseRect}<circle cx="15" cy="15" r="5"/><circle cx="85" cy="15" r="5"/><circle cx="15" cy="85" r="5"/><circle cx="85" cy="85" r="5"/></svg>`, `<svg>${baseRect}<circle cx="35" cy="15" r="5"/><circle cx="35" cy="85" r="5"/></svg>`, `<svg>${baseRect}<circle cx="15" cy="35" r="5"/><circle cx="15" cy="65" r="5"/><circle cx="85" cy="35" r="5"/><circle cx="85" cy="65" r="5"/></svg>` ],
-                correctIndex: 0
-            },
-            { // Problem 2: Diagonal fold, center punch
-                folds: [ `<svg width="100" height="100"><rect x="0" y="0" width="100" height="100" stroke="black" fill="white"/><line x1="100" y1="0" x2="0" y2="100" stroke-dasharray="4" stroke="gray"/><path d="M35 35 L65 65 M55 65 L65 65 M65 55 L65 65" stroke="gray" stroke-width="3" fill="none"/></svg>`, `<svg width="100" height="100" viewBox="0 0 100 100"><path d="M0 100 L100 0 L100 100 z" stroke="black" fill="white"/><circle cx="75" cy="75" r="5" fill="black"/></svg>` ],
-                options: [ `<svg>${baseRect}<circle cx="25" cy="25" r="5"/><circle cx="75" cy="75" r="5"/></svg>`, `<svg>${baseRect}<circle cx="25" cy="75" r="5"/><circle cx="75" cy="25" r="5"/></svg>`, `<svg>${baseRect}<circle cx="50" cy="50" r="5"/></svg>`, `<svg>${baseRect}<circle cx="25" cy="25" r="5"/><circle cx="50" cy="50" r="5"/><circle cx="75" cy="75" r="5"/></svg>` ],
-                correctIndex: 0
-            },
-            { // Problem 3: Horizontal accordion fold, side punch
-                folds: [ `<svg width="100" height="100"><rect x="0" y="0" width="100" height="100" stroke="black" fill="white"/><line x1="0" y1="50" x2="100" y2="50" stroke-dasharray="4" stroke="gray"/><path d="M50 35 L40 15 M50 35 L60 15" stroke="gray" stroke-width="3" fill="none"/></svg>`, `<svg width="100" height="50"><rect x="0" y="0" width="100" height="50" stroke="black" fill="white"/><line x1="0" y1="25" x2="100" y2="25" stroke-dasharray="4" stroke="gray"/><path d="M50 40 L40 60 M50 40 L60 60" stroke="gray" stroke-width="3" fill="none" transform="translate(0 -25)"/></svg>`, `<svg width="100" height="25"><rect x="0" y="0" width="100" height="25" stroke="black" fill="white"/><circle cx="15" cy="12.5" r="5" fill="black"/></svg>` ],
-                options: [ `<svg>${baseRect}<circle cx="15" cy="12.5" r="5"/><circle cx="15" cy="37.5" r="5"/><circle cx="15" cy="62.5" r="5"/><circle cx="15" cy="87.5" r="5"/></svg>`, `<svg>${baseRect}<circle cx="15" cy="12.5" r="5"/><circle cx="85" cy="12.5" r="5"/></svg>`, `<svg>${baseRect}<circle cx="15" cy="12.5" r="5"/><circle cx="15" cy="87.5" r="5"/></svg>`, `<svg>${baseRect}<circle cx="15" cy="37.5" r="5"/><circle cx="15" cy="62.5" r="5"/></svg>` ],
-                correctIndex: 0
-            },
-            { // Problem 4: Vertical fold, triangle punch
-                folds: [ `<svg width="100" height="100"><rect x="0" y="0" width="100" height="100" stroke="black" fill="white"/><line x1="50" y1="0" x2="50" y2="100" stroke-dasharray="4" stroke="gray"/>${arrow()}</svg>`, `<svg width="50" height="100"><rect x="0" y="0" width="50" height="100" stroke="black" fill="white"/><path d="M10 40 L30 50 L10 60 z" fill="black"/></svg>` ],
-                options: [ `<svg>${baseRect}<path d="M10 40 L30 50 L10 60 z"/><path d="M90 40 L70 50 L90 60 z"/></svg>`, `<svg>${baseRect}<path d="M40 10 L50 30 L60 10 z"/><path d="M40 90 L50 70 L60 90 z"/></svg>`, `<svg>${baseRect}<path d="M10 40 L30 50 L10 60 z"/></svg>`, `<svg>${baseRect}<path d="M40 40 L50 20 L60 40 z"/><path d="M40 60 L50 80 L60 60 z"/></svg>` ],
-                correctIndex: 0
-            }
-        ];
-        let spatialRound = 0, correctSpatial = 0;
-        const startSpatialBtn = document.getElementById('start-spatial');
-        const spatialGameArea = document.getElementById('spatial-game-area');
-        const foldingSequenceEl = document.getElementById('folding-sequence');
-        const spatialOptionsEl = document.getElementById('spatial-options');
-        const spatialResultEl = document.getElementById('spatial-result');
+        const spatialArrow = `<path d="M65 50 L85 40 M65 50 L85 60" stroke="gray" stroke-width="3" fill="none"/>`; const spatialBaseRect = `<rect x="0" y="0" width="100" height="100" stroke="black" fill="white"/>`; const spatialProblems = [ { folds: [ `<svg width="100" height="100"><rect x="0" y="0" width="100" height="100" stroke="black" fill="white"/><line x1="50" y1="0" x2="50" y2="100" stroke-dasharray="4" stroke="gray"/>${spatialArrow}</svg>`, `<svg width="50" height="100"><rect x="0" y="0" width="50" height="100" stroke="black" fill="white"/><line x1="0" y1="50" x2="50" y2="50" stroke-dasharray="4" stroke="gray"/><path d="M25 65 L15 85 M25 65 L35 85" stroke="gray" stroke-width="3" fill="none"/></svg>`, `<svg width="50" height="50"><rect x="0" y="0" width="50" height="50" stroke="black" fill="white"/><circle cx="35" cy="15" r="5" fill="black"/></svg>` ], options: [ `<svg>${spatialBaseRect}<circle cx="35" cy="15" r="5"/><circle cx="65" cy="15" r="5"/><circle cx="35" cy="85" r="5"/><circle cx="65" cy="85" r="5"/></svg>`, `<svg>${spatialBaseRect}<circle cx="15" cy="15" r="5"/><circle cx="85" cy="15" r="5"/><circle cx="15" cy="85" r="5"/><circle cx="85" cy="85" r="5"/></svg>`, `<svg>${spatialBaseRect}<circle cx="35" cy="15" r="5"/><circle cx="35" cy="85" r="5"/></svg>`, `<svg>${spatialBaseRect}<circle cx="15" cy="35" r="5"/><circle cx="15" cy="65" r="5"/><circle cx="85" cy="35" r="5"/><circle cx="85" cy="65" r="5"/></svg>` ], correctIndex: 0 }, { folds: [ `<svg width="100" height="100"><rect x="0" y="0" width="100" height="100" stroke="black" fill="white"/><line x1="100" y1="0" x2="0" y2="100" stroke-dasharray="4" stroke="gray"/><path d="M35 35 L65 65 M55 65 L65 65 M65 55 L65 65" stroke="gray" stroke-width="3" fill="none"/></svg>`, `<svg width="100" height="100" viewBox="0 0 100 100"><path d="M0 100 L100 0 L100 100 z" stroke="black" fill="white"/><circle cx="75" cy="75" r="5" fill="black"/></svg>` ], options: [ `<svg>${spatialBaseRect}<circle cx="25" cy="25" r="5"/><circle cx="75" cy="75" r="5"/></svg>`, `<svg>${spatialBaseRect}<circle cx="25" cy="75" r="5"/><circle cx="75" cy="25" r="5"/></svg>`, `<svg>${spatialBaseRect}<circle cx="50" cy="50" r="5"/></svg>`, `<svg>${spatialBaseRect}<circle cx="25" cy="25" r="5"/><circle cx="50" cy="50" r="5"/><circle cx="75" cy="75" r="5"/></svg>` ], correctIndex: 0 }, { folds: [ `<svg width="100" height="100"><rect x="0" y="0" width="100" height="100" stroke="black" fill="white"/><line x1="0" y1="50" x2="100" y2="50" stroke-dasharray="4" stroke="gray"/><path d="M50 35 L40 15 M50 35 L60 15" stroke="gray" stroke-width="3" fill="none"/></svg>`, `<svg width="100" height="50"><rect x="0" y="0" width="100" height="50" stroke="black" fill="white"/><line x1="0" y1="25" x2="100" y2="25" stroke-dasharray="4" stroke="gray"/><path d="M50 40 L40 60 M50 40 L60 60" stroke="gray" stroke-width="3" fill="none" transform="translate(0 -25)"/></svg>`, `<svg width="100" height="25"><rect x="0" y="0" width="100" height="25" stroke="black" fill="white"/><circle cx="15" cy="12.5" r="5" fill="black"/></svg>` ], options: [ `<svg>${spatialBaseRect}<circle cx="15" cy="12.5" r="5"/><circle cx="15" cy="37.5" r="5"/><circle cx="15" cy="62.5" r="5"/><circle cx="15" cy="87.5" r="5"/></svg>`, `<svg>${spatialBaseRect}<circle cx="15" cy="12.5" r="5"/><circle cx="85" cy="12.5" r="5"/></svg>`, `<svg>${spatialBaseRect}<circle cx="15" cy="12.5" r="5"/><circle cx="15" cy="87.5" r="5"/></svg>`, `<svg>${spatialBaseRect}<circle cx="15" cy="37.5" r="5"/><circle cx="15" cy="62.5" r="5"/></svg>` ], correctIndex: 0 }, { folds: [ `<svg width="100" height="100"><rect x="0" y="0" width="100" height="100" stroke="black" fill="white"/><line x1="50" y1="0" x2="50" y2="100" stroke-dasharray="4" stroke="gray"/>${spatialArrow}</svg>`, `<svg width="50" height="100"><rect x="0" y="0" width="50" height="100" stroke="black" fill="white"/><path d="M10 40 L30 50 L10 60 z" fill="black"/></svg>` ], options: [ `<svg>${spatialBaseRect}<path d="M10 40 L30 50 L10 60 z"/><path d="M90 40 L70 50 L90 60 z"/></svg>`, `<svg>${spatialBaseRect}<path d="M40 10 L50 30 L60 10 z"/><path d="M40 90 L50 70 L60 90 z"/></svg>`, `<svg>${spatialBaseRect}<path d="M10 40 L30 50 L10 60 z"/></svg>`, `<svg>${spatialBaseRect}<path d="M40 40 L50 20 L60 40 z"/><path d="M40 60 L50 80 L60 60 z"/></svg>` ], correctIndex: 0 } ]; let spatialRound = 0, correctSpatial = 0; const startSpatialBtn = document.getElementById('start-spatial'); const spatialGameArea = document.getElementById('spatial-game-area'); const foldingSequenceEl = document.getElementById('folding-sequence'); const spatialOptionsEl = document.getElementById('spatial-options'); const spatialResultEl = document.getElementById('spatial-result'); startSpatialBtn.addEventListener('click', startSpatialGame); function startSpatialGame() { spatialRound = 0; correctSpatial = 0; startSpatialBtn.disabled = true; startSpatialBtn.textContent = 'Game in progress...'; spatialGameArea.style.display = 'block'; spatialResultEl.textContent = ''; loadNextSpatialProblem(); } function loadNextSpatialProblem() { const problem = spatialProblems[spatialRound]; foldingSequenceEl.innerHTML = problem.folds.join('<span style="font-size:2em; color:gray;">&rightarrow;</span>'); spatialOptionsEl.innerHTML = ''; const shuffledOptions = problem.options.map((opt, i) => ({ opt, i })).sort(() => Math.random() - 0.5); shuffledOptions.forEach(item => { const btn = document.createElement('button'); btn.innerHTML = item.opt; const isCorrect = (item.i === problem.correctIndex); btn.onclick = () => checkSpatialAnswer(isCorrect); spatialOptionsEl.appendChild(btn); }); spatialResultEl.textContent = `Question ${spatialRound + 1} of ${spatialProblems.length}`; } function checkSpatialAnswer(isCorrect) { if (isCorrect) correctSpatial++; spatialRound++; if (spatialRound < spatialProblems.length) { spatialResultEl.textContent = isCorrect ? 'Correct!' : 'Incorrect.'; setTimeout(loadNextSpatialProblem, 750); } else { endSpatialGame(); } } function endSpatialGame() { spatialGameArea.style.display = 'none'; const finalScore = Math.round(correctSpatial / spatialProblems.length * 100); spatialResultEl.textContent = `Final Score: ${correctSpatial}/${spatialProblems.length} correct (${finalScore}%)`; startSpatialBtn.textContent = 'Play Again'; startSpatialBtn.disabled = false; postScore(currentUser, 'any', 'Spatial Orientation', finalScore, -1); }
 
-        startSpatialBtn.addEventListener('click', startSpatialGame);
-
-        function startSpatialGame() {
-            spatialRound = 0; correctSpatial = 0;
-            startSpatialBtn.disabled = true; startSpatialBtn.textContent = 'Game in progress...';
-            spatialGameArea.style.display = 'block';
-            spatialResultEl.textContent = '';
-            loadNextSpatialProblem();
-        }
-
-        function loadNextSpatialProblem() {
-            const problem = problems[spatialRound];
-            foldingSequenceEl.innerHTML = problem.folds.join('<span style="font-size:2em; color:gray;">&rightarrow;</span>');
-            spatialOptionsEl.innerHTML = '';
-            const shuffledOptions = problem.options.map((opt, i) => ({ opt, i })).sort(() => Math.random() - 0.5);
-
-            shuffledOptions.forEach(item => {
-                const btn = document.createElement('button');
-                btn.innerHTML = item.opt;
-                const isCorrect = (item.i === problem.correctIndex);
-                btn.onclick = () => checkSpatialAnswer(isCorrect);
-                spatialOptionsEl.appendChild(btn);
-            });
-            spatialResultEl.textContent = `Question ${spatialRound + 1} of ${problems.length}`;
-        }
-
-        function checkSpatialAnswer(isCorrect) {
-            if (isCorrect) correctSpatial++;
-            spatialRound++;
-            if (spatialRound < problems.length) {
-                spatialResultEl.textContent = isCorrect ? 'Correct!' : 'Incorrect.';
-                setTimeout(loadNextSpatialProblem, 750);
-            } else {
-                endSpatialGame();
-            }
-        }
-
-        function endSpatialGame() {
-            spatialGameArea.style.display = 'none';
-            const finalScore = Math.round(correctSpatial / problems.length * 100);
-            spatialResultEl.textContent = `Final Score: ${correctSpatial}/${problems.length} correct (${finalScore}%)`;
-            startSpatialBtn.textContent = 'Play Again';
-            startSpatialBtn.disabled = false;
-            postScore(currentUser, 'any', 'Spatial Orientation', finalScore, -1);
-        }
+        // --- MANUAL DEXTERITY GAME ---
+        const dexterityCanvas = document.getElementById('dexterity-canvas'); const startDexterityBtn = document.getElementById('start-dexterity'); const dexterityResultEl = document.getElementById('dexterity-result'); const checkpoints = [ {cx: 50, cy: 100}, {cx: 150, cy: 50}, {cx: 250, cy: 150}, {cx: 350, cy: 50}, {cx: 450, cy: 100} ]; let nextCheckpoint = 0; let dexterityStartTime; startDexterityBtn.addEventListener('click', startDexterityGame); function drawPath() { dexterityCanvas.innerHTML = ''; let pathData = `M ${checkpoints[0].cx} ${checkpoints[0].cy}`; for (let i = 1; i < checkpoints.length; i++) { pathData += ` L ${checkpoints[i].cx} ${checkpoints[i].cy}`; } const path = document.createElementNS('http://www.w3.org/2000/svg', 'path'); path.setAttribute('d', pathData); path.setAttribute('stroke', '#ccc'); path.setAttribute('stroke-width', 20); path.setAttribute('stroke-linecap', 'round'); path.setAttribute('fill', 'none'); dexterityCanvas.appendChild(path); checkpoints.forEach((cp, i) => { const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); circle.setAttribute('cx', cp.cx); circle.setAttribute('cy', cp.cy); circle.setAttribute('r', 12); circle.setAttribute('fill', i === nextCheckpoint ? 'blue' : '#eee'); circle.setAttribute('stroke', 'black'); circle.id = `cp-${i}`; dexterityCanvas.appendChild(circle); circle.addEventListener('mouseover', () => { if (i === nextCheckpoint && dexterityStartTime) { nextCheckpoint++; document.getElementById(`cp-${i}`).setAttribute('fill', 'lightgreen'); if (nextCheckpoint < checkpoints.length) { document.getElementById(`cp-${nextCheckpoint}`).setAttribute('fill', 'blue'); } else { endDexterityGame(); } } }); }); } function startDexterityGame() { nextCheckpoint = 0; dexterityStartTime = Date.now(); startDexterityBtn.disabled = true; startDexterityBtn.textContent = "Game in progress..."; dexterityResultEl.textContent = "Go to checkpoint #1!"; drawPath(); } function endDexterityGame() { const totalTime = Date.now() - dexterityStartTime; dexterityResultEl.textContent = `Finished! Time: ${totalTime} ms.`; startDexterityBtn.disabled = false; startDexterityBtn.textContent = "Play Again"; dexterityStartTime = null; postScore(currentUser, 'any', 'Manual Dexterity', totalTime, totalTime); }
     });
 </script>
 </body>

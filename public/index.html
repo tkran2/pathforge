@@ -1,30 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF--8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Welcome to PathForge</title>
-    <style>
-        body { font-family: sans-serif; text-align: center; max-width: 600px; margin: 5em auto; }
-        h1 { font-size: 2.5em; }
-        p { font-size: 1.1em; line-height: 1.6; color: #555; }
-        .cta-button {
-            display: inline-block;
-            background-color: #007bff;
-            color: white;
-            padding: 15px 30px;
-            text-decoration: none;
-            font-size: 1.2em;
-            border-radius: 5px;
-            margin-top: 1em;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <h1>Find Your Path. Unlock Your Potential.</h1>
-    <p>
-        PathForge discovers your innate talents through a series of engaging, science-backed assessments. We then map your unique abilities directly to promising career paths.
-    </p>
-    <a href="/static/login.html" class="cta-button">Get Started</a>
+    <header class="main-header">
+        <a href="/static/index.html" class="logo">PathForge</a>
+        <nav>
+            <a href="/static/assessment.html">Assessments</a>
+            <a href="/static/dashboard.html">My Matches</a>
+            <a href="/static/login.html">Logout</a>
+        </nav>
+    </header>
+
+    <main style="text-align: center;">
+        <h1 id="welcome-heading">Find Your Path. Unlock Your Potential.</h1>
+        <p id="welcome-text">
+            PathForge discovers your innate talents through a series of engaging, science-backed assessments. We then map your unique abilities directly to promising career paths.
+        </p>
+        <a href="/static/login.html" class="cta-button">Get Started</a>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const user = localStorage.getItem('pathforge_user');
+            const ctaButton = document.querySelector('.cta-button');
+            const welcomeText = document.getElementById('welcome-text');
+            const welcomeHeading = document.getElementById('welcome-heading');
+
+            if (user && ctaButton) {
+                welcomeHeading.textContent = `Welcome Back, ${user}`;
+                welcomeText.textContent = `You can continue to your dashboard to see your career matches or take more assessments.`;
+                ctaButton.textContent = 'View My Matches';
+                ctaButton.href = '/static/dashboard.html';
+            }
+        });
+    </script>
 </body>
 </html>
